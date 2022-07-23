@@ -83,6 +83,7 @@ public class ConfigReader {
     // Is a map, parse all keys of this section
     if (Map.class.isAssignableFrom(type)) {
       CSMap kvInfo = f == null ? null : f.getAnnotation(CSMap.class);
+      Map<Object, Object> items = new HashMap<>();
 
       // If there is either no annotation present or the
       // value was parsed directly without a wrapping class, use string maps
@@ -93,31 +94,24 @@ public class ConfigReader {
         .map(cv -> cv.asScalar(MemorySection.class))
         .orElse(null);
 
-      if (ms == null)
-        return Optional.empty();
+      if (ms != null) {
+        // Iterate all keys of this section
+        for (String msKey : ms.getKeys(false)) {
+          // Value type unparsable
+          Object v = parseValue(join(key, msKey), vC, false).orElse(null);
+          if (v == null)
+            continue;
 
-      Map<Object, Object> items = new HashMap<>();
+          // Key type unparsable
+          Object parsedKey = ConfigValue.immediate(msKey).asScalar(kC);
+          if (parsedKey == null)
+            continue;
 
-      // Iterate all keys of this section
-      for (String msKey : ms.getKeys(false)) {
-        // Value type unparsable
-        Object v = parseValue(join(key, msKey), vC, false).orElse(null);
-        if (v == null)
-          continue;
-
-        // Key type unparsable
-        Object parsedKey = ConfigValue.immediate(msKey).asScalar(kC);
-        if (parsedKey == null)
-          continue;
-
-        items.put(parsedKey, v);
+          items.put(parsedKey, v);
+        }
       }
 
-      // Only set if there are actually items available
-      if (items.size() > 0)
-        return Optional.of(type.cast(items));
-
-      return Optional.empty();
+      return Optional.of(type.cast(items));
     }
 
     // Is an array, multiple elements of the same type in a sequence
