@@ -46,4 +46,23 @@ public abstract class AConfigSection {
    * and no more changes will be applied
    */
   public void afterParsing(List<Field> fields) throws Exception {}
+
+  /**
+   * Patch the prefix on all config values which are not the prefix itself
+   * @param prefix Prefix to apply
+   * @param fields List of fields to apply to
+   */
+  public void distributePrefix(String prefix, List<Field> fields) throws Exception {
+    fields.stream()
+      .filter(f -> !f.getName().equals("prefix") && f.getType() == ConfigValue.class)
+      .forEach(f -> {
+        try {
+          ConfigValue cv = (ConfigValue) f.get(this);
+          if (cv != null)
+            cv.setPrefix(prefix);
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
+      });
+  }
 }
