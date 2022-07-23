@@ -58,6 +58,8 @@ public class ConfigValue {
   // Prefix mode, 'N' = none, 'F' = first line, 'A' = all lines
   private char prefixMode;
 
+  private boolean disableColors;
+
   /**
    * Create a new config value builder by a value
    * @param val Value
@@ -92,6 +94,14 @@ public class ConfigValue {
    */
   public ConfigValue withPrefixes() {
     this.prefixMode = 'A';
+    return this;
+  }
+
+  /**
+   * Disables any automatic color manipulation within values
+   */
+  public ConfigValue disableColors() {
+    this.disableColors = true;
     return this;
   }
 
@@ -431,6 +441,9 @@ public class ConfigValue {
    * @return String with all colors applied
    */
   private String applyColors(String input) {
+    if (disableColors)
+      return input;
+
     return ChatColor.translateAlternateColorCodes('&', input);
   }
 
@@ -587,7 +600,7 @@ public class ConfigValue {
    * Create a carbon copy of this config value
    */
   public ConfigValue copy() {
-    return new ConfigValue(new ArrayList<>(lines), new HashMap<>(vars), lutResolver, prefix, prefixMode);
+    return new ConfigValue(new ArrayList<>(lines), new HashMap<>(vars), lutResolver, prefix, prefixMode, disableColors);
   }
 
   @Override
