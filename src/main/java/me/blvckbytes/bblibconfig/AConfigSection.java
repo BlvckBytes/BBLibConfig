@@ -38,6 +38,12 @@ public abstract class AConfigSection {
    * @return Value to use as a default
    */
   public @Nullable Object defaultFor(Class<?> type, String field) {
+    if (type == ConfigValue.class)
+      return ConfigValue.immediate("&cundefined");
+
+    if (type == String.class)
+      return "§cundefined";
+
     return null;
   }
 
