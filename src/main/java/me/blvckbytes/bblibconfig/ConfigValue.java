@@ -637,8 +637,16 @@ public class ConfigValue {
    */
   private<T> Optional<T> cast(Object value, Class<T> type) {
     try {
+      // Requested the whole wrapper
+      if (type == ConfigValue.class)
+        return Optional.of(type.cast(this));
+
       // Ensure wrapper types for easier comparison
       Class<T> wType = Primitives.wrap(type);
+
+      // Already a matching data-type
+      if (wType.equals(Primitives.wrap(value.getClass())))
+        return Optional.of(type.cast(value));
 
       String stringValue = applyVariables(value.toString().trim(), vars);
 
@@ -669,10 +677,6 @@ public class ConfigValue {
       // Since potion effect types are just constants, map here
       if (wType == PotionEffectType.class)
         return XPotion.matchXPotion(stringValue).map(xe -> wType.cast(xe.getPotionEffectType()));
-
-      // Requested the whole wrapper
-      if (wType == ConfigValue.class)
-        return Optional.of(wType.cast(this));
 
       // String value as scalar
       if (wType == String.class)
