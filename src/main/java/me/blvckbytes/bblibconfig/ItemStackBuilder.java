@@ -19,6 +19,7 @@ import org.bukkit.potion.PotionEffect;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -57,7 +58,7 @@ public class ItemStackBuilder {
    * @param profile Profile to apply to the head
    */
   public ItemStackBuilder(GameProfile profile) {
-    this(Material.PLAYER_HEAD, 1);
+    this(XMaterial.PLAYER_HEAD.parseMaterial(), 1);
 
     // Is a player-head where textures should be applied
     // and there has been a profile provided
@@ -327,7 +328,26 @@ public class ItemStackBuilder {
     if (this.meta == null || !(this.meta instanceof SkullMeta))
       return;
 
+    // Try to find the setProfile method
+    Method setProfileMethod = null;
     try {
+      setProfileMethod = this.meta.getClass().getDeclaredMethod("setProfile", GameProfile.class);
+    } catch (Exception ignored) {}
+
+    try {
+      // if available, we use setProfile(GameProfile) so that it sets both the profile field and the
+      // serialized profile field for us. If the serialized profile field isn't set
+      // ItemStack#isSimilar() and ItemStack#equals() throw an error.
+
+      // If setProfile is available, this is the preferred method, as it will also set
+      // the serialized profile field without which bukkit will panic on ItemStack#isSimilar() or ItemStack#equals()
+      if (setProfileMethod != null) {
+        setProfileMethod.setAccessible(true);
+        setProfileMethod.invoke(this.meta, profile);
+        return;
+      }
+
+      // Method unavailable, just set the GameProfile field
       Field profileField = meta.getClass().getDeclaredField("profile");
       profileField.setAccessible(true);
       profileField.set(meta, profile);
