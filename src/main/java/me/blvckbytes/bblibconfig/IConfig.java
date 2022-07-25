@@ -22,4 +22,11 @@ public interface IConfig {
    * @param path Path of the target config file (no leading slash, no .yml)
    */
   Optional<ConfigReader> reader(String path);
+
+  /**
+   * Get the file global LUT resolver
+   * @param path Path of the target config file (no leading slash, no .yml)
+   */
+  Optional<ILutResolver> getLutResolver(String path);
+
 }

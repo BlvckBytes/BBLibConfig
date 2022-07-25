@@ -371,7 +371,8 @@ public class YamlConfig implements IConfig, IAutoConstructed {
    * @return Optional LUT resolver, empty if the path was invalid
    */
   @SuppressWarnings("unchecked")
-  private Optional<ILutResolver> getLutResolver(String path) {
+  @Override
+  public Optional<ILutResolver> getLutResolver(String path) {
     // Perform a cache lookup first
     ILutResolver cache = resolvers.get(path);
     if (cache != null)
