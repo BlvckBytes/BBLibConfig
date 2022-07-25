@@ -17,8 +17,10 @@ import org.jetbrains.annotations.Nullable;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -37,9 +39,13 @@ public class ConfigValue {
   // Decimal format used when encountering double variables
   private static final DecimalFormat DECIMAL_FORMAT;
 
+  // Date format used when serializing dates from/to strings
+  private static final DateFormat SERIALIZATION_FORMAT;
+
   static {
     DECIMAL_FORMAT = (DecimalFormat) NumberFormat.getInstance(Locale.US);
     DECIMAL_FORMAT.applyPattern("0.00");
+    SERIALIZATION_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
   }
 
   // Unmodified lines read from the config
@@ -591,6 +597,29 @@ public class ConfigValue {
       return applyColors(res.toString());
     }
 
+    // Is a date format expression
+    // Syntax: {{ <var> $ "<date format>" }}
+    int indexD = realIndexOf(expr, '$');
+    if (indexD > 0 && indexD < expr.length() - 1) {
+      String varVal = vars.get(expr.substring(0, indexD).trim());
+
+      // Could not find requested variable
+      if (varVal == null)
+        return null;
+
+      try {
+        // Try to parse the date format
+        return new SimpleDateFormat(removeQuotation(expr.substring(indexD + 1).trim()))
+          // Try to parse the serialized date and then format using the specified format
+          .format(SERIALIZATION_FORMAT.parse(varVal));
+      }
+
+      // Either an invalid format or not a date containing variable
+      catch (Exception e) {
+        return null;
+      }
+    }
+
     // Just try to lookup as is
     String res = vars.get(expr);
     return res == null ? null : applyColors(res);
@@ -792,6 +821,10 @@ public class ConfigValue {
       Double d = (Double) value;
       return d == 0 ? "0" : DECIMAL_FORMAT.format(d);
     }
+
+    // Serialize dates
+    if (value instanceof Date)
+      return SERIALIZATION_FORMAT.format((Date) value);
 
     return value.toString();
   }
