@@ -822,6 +822,12 @@ public class ConfigValue {
       return d == 0 ? "0" : DECIMAL_FORMAT.format(d);
     }
 
+    // Floats should always have two decimal digits
+    if (value instanceof Float) {
+      Float f = (Float) value;
+      return f == 0 ? "0" : DECIMAL_FORMAT.format(f);
+    }
+
     // Serialize dates
     if (value instanceof Date)
       return SERIALIZATION_FORMAT.format((Date) value);
