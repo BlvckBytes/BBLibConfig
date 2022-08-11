@@ -208,6 +208,10 @@ public class ItemStackSection extends AConfigSection {
 
     // Check for the presence of all custom effects (ignoring order)
     if (!checkMeta(item, customEffects, meta -> {
+      // Nothing to compare
+      if (customEffects.length == 0)
+        return true;
+
       if (!(meta instanceof PotionMeta))
         return false;
 

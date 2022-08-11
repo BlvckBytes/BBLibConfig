@@ -49,7 +49,7 @@ public class ConfigReader {
    * @return Optional parsed model, if the key existed
    */
   @SuppressWarnings("unchecked")
-  public<T extends Object> Optional<T> parseValue(@Nullable String key, Class<T> type, boolean cache) {
+  public<T> Optional<T> parseValue(@Nullable String key, Class<T> type, boolean cache) {
     if (cache && parseCache.containsKey(key))
       return Optional.of((T) parseCache.get(key));
 
@@ -65,16 +65,15 @@ public class ConfigReader {
    * Recursive sub-routine with extra parameters
    */
   @SuppressWarnings("unchecked")
-  private<T extends Object> Optional<T> parseValueSub(@Nullable String key, Class<T> type, Field f, boolean withinArray, boolean ignoreMissing) {
+  private<T> Optional<T> parseValueSub(@Nullable String key, Class<T> type, Field f, boolean withinArray, boolean ignoreMissing) {
     boolean isSection = AConfigSection.class.isAssignableFrom(type);
 
     // Null keys mean root level scope
-    if (key == null)
-      key = "";
+    String cKey = key == null ? "" : key;
 
     if (
       // Does not exist
-      cfg.get(path, key).isEmpty() &&
+      cfg.get(path, cKey).isEmpty() &&
       // And is either within an array (missing = stop condition), or missing is not being ignored
       (!ignoreMissing || withinArray)
     )
@@ -90,15 +89,34 @@ public class ConfigReader {
       Class<?> kC = kvInfo == null ? String.class : kvInfo.k();
       Class<?> vC = kvInfo == null ? String.class : kvInfo.v();
 
-      MemorySection ms = get(key)
-        .map(cv -> cv.asScalar(MemorySection.class))
-        .orElse(null);
+      ConfigValue cv = get(cKey).orElse(null);
 
+      // Value unavailable
+      if (cv == null)
+        return Optional.of(type.cast(items));
+
+      // Try to interpret as a map directly
+      Map<?, ?> map = cv.asScalar(Map.class);
+      if (map != null) {
+        map.forEach((k, v) -> {
+          // Value type unparsable
+          Object pV = parseValue(join(cKey, k.toString()), vC, false).orElse(null);
+          if (pV == null)
+            return;
+
+          items.put(kC.cast(k), pV);
+        });
+
+        return Optional.of(type.cast(items));
+      }
+
+      // Try to interpret as a memory section
+      MemorySection ms = cv.asScalar(MemorySection.class);
       if (ms != null) {
         // Iterate all keys of this section
         for (String msKey : ms.getKeys(false)) {
           // Value type unparsable
-          Object v = parseValue(join(key, msKey), vC, false).orElse(null);
+          Object v = parseValue(join(cKey, msKey), vC, false).orElse(null);
           if (v == null)
             continue;
 
@@ -121,7 +139,7 @@ public class ConfigReader {
       // Try to fetch as many values of the list as possible, until the end is reached
       List<Object> items = new ArrayList<>();
       for (int i = 0; i < Integer.MAX_VALUE; i++) {
-        Optional<?> v = parseValueSub(key + "[" + i + "]", (Class<? extends AConfigSection>) arrType, f, true, false);
+        Optional<?> v = parseValueSub(cKey + "[" + i + "]", (Class<? extends AConfigSection>) arrType, f, true, false);
 
         // End of list reached, no more items available
         if (v.isEmpty())
@@ -168,7 +186,7 @@ public class ConfigReader {
 
           String fName = field.getName();
           Class<?> fType = field.getType();
-          String fKey = join(key, fName);
+          String fKey = join(cKey, fName);
 
           // Try to transform the type by letting the class decide at runtime
           if (fType == Object.class)
@@ -214,7 +232,7 @@ public class ConfigReader {
     type = Primitives.wrap(type);
 
     // Try to use ConfigValue's internal casting mechanism
-    ConfigValue cv = get(key).orElse(null);
+    ConfigValue cv = get(cKey).orElse(null);
     if (cv != null) {
       // Set the scalar value, only if it's type matches
       Object v = cv.asScalar(type);
