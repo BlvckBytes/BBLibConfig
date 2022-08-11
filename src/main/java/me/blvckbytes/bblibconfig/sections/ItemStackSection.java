@@ -64,7 +64,7 @@ public class ItemStackSection extends AConfigSection {
 
     return new ItemStackBuilder(
       base == null ? new ItemStack(Material.BARRIER) : base,
-      base == null ? 1 : base.getAmount()
+      amount == null ? 1 : amount
     )
       .setPatterns(() -> (
         Arrays.stream(bannerPatterns)
