@@ -167,7 +167,7 @@ public class ConfigReader {
       try {
         AConfigSection res = (AConfigSection) type.getConstructor().newInstance();
 
-        List<Field> fields = Arrays.stream(type.getDeclaredFields())
+        List<Field> fields = findFields(type).stream()
           .sorted((a, b) -> {
             if (a.getType() == Object.class && b.getType() == Object.class)
               return 0;
@@ -254,6 +254,24 @@ public class ConfigReader {
   //=========================================================================//
   //                                Utilities                                //
   //=========================================================================//
+
+  /**
+   * Finds all fields of a class while accounting for inheritance
+   * @param c Target class
+   * @return List of found fields
+   */
+  private List<Field> findFields(Class<?> c) {
+    List<Field> res = new ArrayList<>();
+
+    // Walk superclass hierarchy and collect all fields
+    Class<?> curr = c;
+    while (curr != null && curr != Object.class) {
+      res.addAll(Arrays.asList(curr.getDeclaredFields()));
+      curr = curr.getSuperclass();
+    }
+
+    return res;
+  }
 
   /**
    * Join two keys with a separating dot and handle all cases
