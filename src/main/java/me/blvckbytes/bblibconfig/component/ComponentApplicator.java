@@ -5,6 +5,7 @@ import me.blvckbytes.bblibdi.AutoInject;
 import me.blvckbytes.bblibreflect.MCReflect;
 import me.blvckbytes.bblibreflect.ReflClass;
 import me.blvckbytes.bblibutil.logger.ILogger;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -104,6 +105,34 @@ public class ComponentApplicator implements IComponentApplicator {
       reflect.findGenericFieldByType(CRAFT_META_ITEM_C, List.class, String.class, 0).set(meta, lore);
 
       item.setItemMeta(meta);
+    } catch (Exception e) {
+      logger.logError(e);
+    }
+  }
+
+  @Override
+  public void sendChat(IComponent message, Player p) {
+    try {
+      reflect.sendSerialized(p, message.toJson(), 0);
+    } catch (Exception e) {
+      logger.logError(e);
+    }
+  }
+
+  @Override
+  public void sendActionBar(IComponent text, Player p) {
+    try {
+      reflect.sendSerialized(p, text.toJson(), 2);
+    } catch (Exception e) {
+      logger.logError(e);
+    }
+  }
+
+  @Override
+  public void sendTitle(IComponent title, IComponent subtitle, int fadeIn, int duration, int fadeOut, Player p) {
+    try {
+      // TODO: Implement
+      throw new UnsupportedOperationException("Not yet implemented");
     } catch (Exception e) {
       logger.logError(e);
     }

@@ -1,5 +1,6 @@
 package me.blvckbytes.bblibconfig.component;
 
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.List;
@@ -39,5 +40,34 @@ public interface IComponentApplicator {
    * @param item Item to apply on
    */
   void setLore(List<? extends IComponent> lines, ItemStack item);
+
+  /**
+   * Send out a chat message
+   * @param message Message to send
+   * @param p Target player
+   */
+  void sendChat(IComponent message, Player p);
+
+  /**
+   * Set the action bar text
+   * @param text Text to set
+   * @param p Target player
+   */
+  void sendActionBar(IComponent text, Player p);
+
+  /**
+   * Send out a title message
+   * @param title Title to display
+   * @param subtitle Subtitle to display
+   * @param fadeIn Fade in duration in ticks
+   * @param duration Stay duration in ticks
+   * @param fadeOut Fade out duration in ticks
+   * @param p Target player
+   */
+  void sendTitle(
+    IComponent title, IComponent subtitle,
+    int fadeIn, int duration, int fadeOut,
+    Player p
+  );
 
 }
