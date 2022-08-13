@@ -29,4 +29,9 @@ public interface IComponent {
    */
   JsonObject toJson();
 
+  /**
+   * Get the plain string representation
+   */
+  String asString();
+
 }

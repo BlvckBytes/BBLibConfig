@@ -36,10 +36,9 @@ public class ExpressionEvaluator implements IExpressionEvaluator {
   //=========================================================================//
 
   @Override
-  public String evaluate(
-    String input,
-    IExpressionDataProvider dataProvider
-  ) {
+  public String evaluate(String input, IExpressionDataProvider dataProvider) {
+
+    // Apply colors on the base string
     if (dataProvider.areColorsEnabled())
       input = applyColors(input);
 
@@ -118,6 +117,11 @@ public class ExpressionEvaluator implements IExpressionEvaluator {
   //                                Utilities                                //
   //=========================================================================//
 
+  /**
+   * Translates color notations on the input string
+   * @param input String to translate in
+   * @return Translated string
+   */
   private String applyColors(String input) {
     return ChatColor.translateAlternateColorCodes('&', input);
   }

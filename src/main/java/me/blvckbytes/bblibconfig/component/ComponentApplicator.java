@@ -34,6 +34,8 @@ import java.util.stream.Collectors;
 @AutoConstruct
 public class ComponentApplicator implements IComponentApplicator {
 
+  // TODO: Just set the plain value on < 1.16
+
   private final Class<?> CRAFT_META_ITEM_C, I_CHAT_BASE_COMPONENT_C;
   private final MCReflect reflect;
   private final ILogger logger;
@@ -85,7 +87,7 @@ public class ComponentApplicator implements IComponentApplicator {
   }
 
   @Override
-  public void setLore(List<IComponent> lines, ItemStack item) {
+  public void setLore(List<? extends IComponent> lines, ItemStack item) {
     ItemMeta meta = item.getItemMeta();
 
     // Meta unavailable

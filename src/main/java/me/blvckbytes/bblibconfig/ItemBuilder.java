@@ -5,6 +5,8 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
+import me.blvckbytes.bblibconfig.component.IComponentApplicator;
+import me.blvckbytes.bblibconfig.component.TextComponent;
 import me.blvckbytes.bblibconfig.sections.ItemStackSection;
 import me.blvckbytes.bblibutil.Tuple;
 import org.bukkit.Color;
@@ -44,7 +46,7 @@ import java.util.stream.Collectors;
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
-public class ItemStackBuilder {
+public class ItemBuilder {
 
   private final ItemStack stack;
   private ItemMeta meta;
@@ -55,12 +57,23 @@ public class ItemStackBuilder {
   private boolean loreOverride;
   private final List<ConfigValue> lore;
 
+  private final IComponentApplicator componentApplicator;
+  private final GradientGenerator gradientGenerator;
+
   /**
    * Create a new builder for a specific material
    * @param mat Material to target
    * @param amount Amount of items
    */
-  public ItemStackBuilder(Material mat, int amount) {
+  public ItemBuilder(
+    Material mat,
+    int amount,
+    IComponentApplicator componentApplicator,
+    GradientGenerator gradientGenerator
+  ) {
+    this.componentApplicator = componentApplicator;
+    this.gradientGenerator = gradientGenerator;
+
     this.stack = new ItemStack(mat, amount);
     this.meta = stack.getItemMeta();
     this.lore = new ArrayList<>();
@@ -70,8 +83,12 @@ public class ItemStackBuilder {
    * Create a new builder for a player-head
    * @param profile Profile to apply to the head
    */
-  public ItemStackBuilder(GameProfile profile) {
-    this(XMaterial.PLAYER_HEAD.parseMaterial(), 1);
+  public ItemBuilder(
+    GameProfile profile,
+    IComponentApplicator componentApplicator,
+    GradientGenerator gradientGenerator
+  ) {
+    this(XMaterial.PLAYER_HEAD.parseMaterial(), 1, componentApplicator, gradientGenerator);
 
     // Is a player-head where textures should be applied
     // and there has been a profile provided
@@ -80,19 +97,19 @@ public class ItemStackBuilder {
   }
 
   /**
-   * Create a new builder for a specific material
-   * @param mat Material to target
-   */
-  public ItemStackBuilder(Material mat) {
-    this(mat, 1);
-  }
-
-  /**
    * Create a new builder based on an existing item stack
    * @param from Existing item stack to mimic
    * @param amount Amount of items
    */
-  public ItemStackBuilder(ItemStack from, int amount) {
+  public ItemBuilder(
+    ItemStack from,
+    int amount,
+    IComponentApplicator componentApplicator,
+    GradientGenerator gradientGenerator
+  ) {
+    this.componentApplicator = componentApplicator;
+    this.gradientGenerator = gradientGenerator;
+
     this.stack = from.clone();
     this.stack.setAmount(amount);
     this.meta = stack.getItemMeta();
@@ -104,7 +121,7 @@ public class ItemStackBuilder {
    * @param enchantment Enchantment to add
    * @param level Level to add the enchantment with
    */
-  public ItemStackBuilder withEnchantment(Enchantment enchantment, int level) {
+  public ItemBuilder withEnchantment(Enchantment enchantment, int level) {
     if (this.meta != null)
       this.meta.addEnchant(enchantment, level, true);
     return this;
@@ -115,7 +132,7 @@ public class ItemStackBuilder {
    * @param enchantments Enchantments to add
    * @param condition Boolean which has to evaluate to true in order to apply the enchantments
    */
-  public ItemStackBuilder withEnchantments(Supplier<List<Tuple<Enchantment, Integer>>> enchantments, boolean condition) {
+  public ItemBuilder withEnchantments(Supplier<List<Tuple<Enchantment, Integer>>> enchantments, boolean condition) {
     if (condition && this.meta != null) {
       enchantments.get().forEach(ench -> withEnchantment(ench.getA(), ench.getB()));
     }
@@ -125,7 +142,7 @@ public class ItemStackBuilder {
   /**
    * Hides all attributes on this item
    */
-  public ItemStackBuilder hideAttributes() {
+  public ItemBuilder hideAttributes() {
     if (this.meta != null)
       this.meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
     return this;
@@ -134,7 +151,7 @@ public class ItemStackBuilder {
   /**
    * Add a list of itemflags to this item
    */
-  public ItemStackBuilder withFlags(Supplier<List<ItemFlag>> flags, boolean condition) {
+  public ItemBuilder withFlags(Supplier<List<ItemFlag>> flags, boolean condition) {
     if (condition && this.meta != null)
       flags.get().forEach(this.meta::addItemFlags);
     return this;
@@ -144,7 +161,7 @@ public class ItemStackBuilder {
    * Add a color to this item (only applicable to leather armor or potions)
    * @param color Color to add
    */
-  public ItemStackBuilder withColor(Supplier<Color> color, boolean condition) {
+  public ItemBuilder withColor(Supplier<Color> color, boolean condition) {
     if (!condition)
       return this;
 
@@ -165,7 +182,7 @@ public class ItemStackBuilder {
    * @param data Base effect to set
    * @param condition Boolean which has to evaluate to true in order to apply the effect
    */
-  public ItemStackBuilder withBaseEffect(Supplier<PotionData> data, boolean condition) {
+  public ItemBuilder withBaseEffect(Supplier<PotionData> data, boolean condition) {
     if (!condition)
       return this;
 
@@ -180,7 +197,7 @@ public class ItemStackBuilder {
    * @param effects Custom effects to add
    * @param condition Boolean which has to evaluate to true in order to apply the effects
    */
-  public ItemStackBuilder withCustomEffects(Supplier<List<PotionEffect>> effects, boolean condition) {
+  public ItemBuilder withCustomEffects(Supplier<List<PotionEffect>> effects, boolean condition) {
     if (!condition)
       return this;
 
@@ -194,7 +211,7 @@ public class ItemStackBuilder {
    * Set a display name
    * @param name Name to set
    */
-  public ItemStackBuilder withName(ConfigValue name) {
+  public ItemBuilder withName(ConfigValue name) {
     return this.withName(name, true);
   }
 
@@ -203,7 +220,7 @@ public class ItemStackBuilder {
    * @param name Name to set
    * @param condition Boolean which has to evaluate to true in order to apply the name
    */
-  public ItemStackBuilder withName(ConfigValue name, boolean condition) {
+  public ItemBuilder withName(ConfigValue name, boolean condition) {
     if (condition)
       this.name = name;
     return this;
@@ -214,7 +231,7 @@ public class ItemStackBuilder {
    * @param name Name to set
    * @param condition Boolean which has to evaluate to true in order to apply the name
    */
-  public ItemStackBuilder withName(Supplier<ConfigValue> name, boolean condition) {
+  public ItemBuilder withName(Supplier<ConfigValue> name, boolean condition) {
     if (condition)
       this.name = name.get();
     return this;
@@ -225,7 +242,7 @@ public class ItemStackBuilder {
    * @param lore Lines to set
    * @param condition Boolean which has to evaluate to true in order to apply the lore
    */
-  public ItemStackBuilder withLore(ConfigValue lore, boolean condition) {
+  public ItemBuilder withLore(ConfigValue lore, boolean condition) {
     if (condition)
       this.lore.add(lore);
     return this;
@@ -236,7 +253,7 @@ public class ItemStackBuilder {
    * @param lore Lines to set
    * @param condition Boolean which has to evaluate to true in order to apply the lore
    */
-  public ItemStackBuilder withLore(Supplier<ConfigValue> lore, boolean condition) {
+  public ItemBuilder withLore(Supplier<ConfigValue> lore, boolean condition) {
     if (condition)
       this.lore.add(lore.get());
     return this;
@@ -246,7 +263,7 @@ public class ItemStackBuilder {
    * Add a lore to the existing lore
    * @param lore Lines to set
    */
-  public ItemStackBuilder withLore(ConfigValue lore) {
+  public ItemBuilder withLore(ConfigValue lore) {
     return withLore(lore, true);
   }
 
@@ -254,7 +271,7 @@ public class ItemStackBuilder {
    * Override all lore lines with the provided lore
    * @param lore Lines to set
    */
-  public ItemStackBuilder setLore(ConfigValue lore) {
+  public ItemBuilder setLore(ConfigValue lore) {
     this.lore.clear();
     this.lore.add(lore);
     this.loreOverride = true;
@@ -266,7 +283,7 @@ public class ItemStackBuilder {
    * @param textures Base64 encoded textures to set
    * @param condition Boolean which has to evaluate to true in order to apply the textures
    */
-  public ItemStackBuilder withTextures(Supplier<String> textures, boolean condition) {
+  public ItemBuilder withTextures(Supplier<String> textures, boolean condition) {
     if (condition && this.meta != null) {
       GameProfile prof = new GameProfile(UUID.randomUUID(), null);
       prof.getProperties().put("textures", new Property("textures", textures.get()));
@@ -279,7 +296,7 @@ public class ItemStackBuilder {
    * Set a new pattern on this banner
    * @param patterns Pattern to add
    */
-  public ItemStackBuilder setPatterns(Supplier<List<Pattern>> patterns, boolean condition) {
+  public ItemBuilder setPatterns(Supplier<List<Pattern>> patterns, boolean condition) {
     if (!condition)
       return this;
 
@@ -303,31 +320,28 @@ public class ItemStackBuilder {
   public ItemStack build(@Nullable Map<String, String> variables) {
     ItemStack res = stack.clone();
 
-    // There is a meta to manipulate
-    if (meta != null) {
+    // Name requested
+    if (name != null) {
+      if (variables != null)
+        name.withVariables(variables);
+      componentApplicator.setDisplayName(name.asComponent(gradientGenerator), res);
+    }
 
-      // Clone the item meta to leave the state of this builder untouched
-      ItemMeta buildMeta = meta.clone();
+    // Lore requested
+    if (lore.size() > 0) {
+      List<TextComponent> lines = new ArrayList<>();
 
-      // Name requested
-      if (name != null) {
-        if (variables != null)
-          name.withVariables(variables);
-        buildMeta.setDisplayName(name.asScalar());
+      // Append old lines first, if applicable
+      if (!loreOverride && meta.getLore() != null) {
+        for (String line : meta.getLore())
+          lines.add(new TextComponent(line));
       }
 
-      // Lore requested
-      if (lore.size() > 0) {
-        List<String> lines = (buildMeta.getLore() == null || loreOverride) ? new ArrayList<>() : buildMeta.getLore();
-        lore.forEach(line -> lines.addAll(
-          line
-            .withVariables(variables)
-            .asList()
-        ));
-        buildMeta.setLore(lines);
-      }
+      // Extend by new lore lines
+      for (ConfigValue line : lore)
+        lines.addAll(line.withVariables(variables).asComponentList(gradientGenerator));
 
-      res.setItemMeta(buildMeta);
+      componentApplicator.setLore(lines, res);
     }
 
     return res;
@@ -372,9 +386,9 @@ public class ItemStackBuilder {
   /**
    * Create a carbon copy of this instance
    */
-  public ItemStackBuilder copy() {
-    return new ItemStackBuilder(
-      stack.clone(), meta.clone(), name, loreOverride, new ArrayList<>(lore)
+  public ItemBuilder copy() {
+    return new ItemBuilder(
+      stack.clone(), meta.clone(), name, loreOverride, new ArrayList<>(lore), componentApplicator, gradientGenerator
     );
   }
 
@@ -384,11 +398,13 @@ public class ItemStackBuilder {
    * @param data Data to patch with
    * @param condition Boolean which has to evaluate to true in order to apply the patch
    */
-  public ItemStackBuilder patch(ItemStackSection data, boolean condition) {
+  public ItemBuilder patch(ItemStackSection data, boolean condition) {
     if (!condition)
       return this;
 
-    ItemStackBuilder res = this.copy();
+    // TODO: Move to components for displayname and lore
+
+    ItemBuilder res = this.copy();
 
     if (data.getAmount() != null)
       res.stack.setAmount(data.getAmount());

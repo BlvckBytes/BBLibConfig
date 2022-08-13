@@ -1,15 +1,15 @@
-package me.blvckbytes.bblibconfig.component;
+package me.blvckbytes.bblibconfig;
 
+import com.mojang.authlib.GameProfile;
+import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
-
-import java.util.List;
 
 /*
   Author: BlvckBytes <blvckbytes@gmail.com>
   Created On: 08/13/2022
 
-  The public API which the component applicator offers to other consumers
-  in order to apply the IComponent to as many destinations as possible.
+  A factory which internally creates the ItemBuilder and injects
+  additional dependencies.
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Affero General Public License as published
@@ -24,20 +24,25 @@ import java.util.List;
   You should have received a copy of the GNU Affero General Public License
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-public interface IComponentApplicator {
+public interface IItemBuilderFactory {
 
   /**
-   * Sets a component as the display name of an item
-   * @param displayName Displayname to set
-   * @param item Item to apply on
+   * Create a new builder for a specific material
+   * @param mat Material to target
+   * @param amount Amount of items
    */
-  void setDisplayName(IComponent displayName, ItemStack item);
+  ItemBuilder create(Material mat, int amount);
 
   /**
-   * Sets a list of components as the lore of an item
-   * @param lines Lore to set
-   * @param item Item to apply on
+   * Create a new builder for a player-head
+   * @param profile Profile to apply to the head
    */
-  void setLore(List<? extends IComponent> lines, ItemStack item);
+  ItemBuilder create(GameProfile profile);
 
+  /**
+   * Create a new builder based on an existing item stack
+   * @param from Existing item stack to mimic
+   * @param amount Amount of items
+   */
+  ItemBuilder create(ItemStack from, int amount);
 }

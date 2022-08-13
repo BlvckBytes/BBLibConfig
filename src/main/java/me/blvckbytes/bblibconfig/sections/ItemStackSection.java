@@ -7,7 +7,8 @@ import com.mojang.authlib.properties.PropertyMap;
 import lombok.Getter;
 import me.blvckbytes.bblibconfig.AConfigSection;
 import me.blvckbytes.bblibconfig.ConfigValue;
-import me.blvckbytes.bblibconfig.ItemStackBuilder;
+import me.blvckbytes.bblibconfig.IItemBuilderFactory;
+import me.blvckbytes.bblibconfig.ItemBuilder;
 import me.blvckbytes.bblibutil.Tuple;
 import org.bukkit.Color;
 import org.bukkit.Material;
@@ -70,12 +71,12 @@ public class ItemStackSection extends AConfigSection {
    * Create an item stack builder from the parameters of this section
    * @param variables Variables to apply while evaluating values
    */
-  public ItemStackBuilder asItem(@Nullable Map<String, String> variables) {
+  public ItemBuilder asItem(IItemBuilderFactory builderFactory, @Nullable Map<String, String> variables) {
     XMaterial m = getType() == null ? null : getType().copy().withVariables(variables).asScalar(XMaterial.class);
     Color c = getColor() == null ? null : getColor().copy().withVariables(variables).asScalar(Color.class);
     ItemStack base = m == null ? null : m.parseItem();
 
-    return new ItemStackBuilder(
+    return builderFactory.create(
       base == null ? new ItemStack(Material.BARRIER) : base,
       amount == null ? 1 : amount
     )

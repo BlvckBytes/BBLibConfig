@@ -9,7 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import net.md_5.bungee.api.chat.TextComponent;
+import me.blvckbytes.bblibconfig.component.TextComponent;
 import org.bukkit.Color;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.potion.PotionEffectType;
@@ -223,6 +223,16 @@ public class ConfigValue implements IExpressionDataProvider {
   }
 
   /**
+   * Build as a component by stringifying values and joining
+   * them using newlines for line separation
+   * @param gradientGenerator Gradient generator ref for generating gradients from gradient notation, optional
+   * @return Component value
+   */
+  public TextComponent asComponent(@Nullable GradientGenerator gradientGenerator) {
+    return TextComponent.parseFromText(asScalar(), gradientGenerator);
+  }
+
+  /**
    * Get the first available value from the list as a
    * scalar of a specific type by trying to cast
    * @param type Required type
@@ -285,8 +295,8 @@ public class ConfigValue implements IExpressionDataProvider {
   ///////////////////////////////// List Value ////////////////////////////////
 
   /**
-   * Build as a list of strings, as they were defined in the config.
-   * This means that a scalar results in a list of length 1
+   * Build as a list of strings, as they were defined in the
+   * config, but split newlines.
    * @return List of strings
    */
   public List<String> asList() {
@@ -298,6 +308,18 @@ public class ConfigValue implements IExpressionDataProvider {
         a.addAll(b);
         return a;
       });
+  }
+
+  /**
+   * Build as a list of components, as they were defined in the
+   * config, but split newlines.
+   * @param gradientGenerator Gradient generator ref for generating gradients from gradient notation, optional
+   * @return List of components
+   */
+  public List<TextComponent> asComponentList(@Nullable GradientGenerator gradientGenerator) {
+    return asList().stream()
+      .map(l -> TextComponent.parseFromText(l, gradientGenerator))
+      .collect(Collectors.toList());
   }
 
   /**

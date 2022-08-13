@@ -38,6 +38,8 @@ import java.util.List;
 @Getter
 public class TextComponent implements IComponent {
 
+  // TODO: Implement color approximations for hex colors when on < 1.16
+
   private final @Nullable String text;
   private final boolean[] formatting;
   private final List<IComponent> siblings;
@@ -181,6 +183,17 @@ public class TextComponent implements IComponent {
     }
 
     return res;
+  }
+
+  @Override
+  public String asString() {
+    // TODO: Implement
+    return null;
+  }
+
+  @Override
+  public String toString() {
+    return toJson().toString();
   }
 
   /////////////////////////////////// Parsing //////////////////////////////////
