@@ -1,6 +1,6 @@
 package me.blvckbytes.bblibconfig.component;
 
-import org.bukkit.entity.Player;
+import me.blvckbytes.bblibreflect.ICustomizableViewer;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.List;
@@ -30,30 +30,32 @@ public interface IComponentApplicator {
   /**
    * Sets a component as the display name of an item
    * @param displayName Displayname to set
+   * @param approximateColors Whether to approximate HEX colors as ChatColors
    * @param item Item to apply on
    */
-  void setDisplayName(IComponent displayName, ItemStack item);
+  void setDisplayName(IComponent displayName, boolean approximateColors, ItemStack item);
 
   /**
    * Sets a list of components as the lore of an item
    * @param lines Lore to set
+   * @param approximateColors Whether to approximate HEX colors as ChatColors
    * @param item Item to apply on
    */
-  void setLore(List<? extends IComponent> lines, ItemStack item);
+  void setLore(List<? extends IComponent> lines, boolean approximateColors, ItemStack item);
 
   /**
    * Send out a chat message
    * @param message Message to send
-   * @param p Target player
+   * @param viewer Viewer of the message
    */
-  void sendChat(IComponent message, Player p);
+  void sendChat(IComponent message, ICustomizableViewer viewer);
 
   /**
    * Set the action bar text
    * @param text Text to set
-   * @param p Target player
+   * @param viewer Viewer of the text
    */
-  void sendActionBar(IComponent text, Player p);
+  void sendActionBar(IComponent text, ICustomizableViewer viewer);
 
   /**
    * Send out a title message
@@ -62,12 +64,12 @@ public interface IComponentApplicator {
    * @param fadeIn Fade in duration in ticks
    * @param duration Stay duration in ticks
    * @param fadeOut Fade out duration in ticks
-   * @param p Target player
+   * @param viewer Viewer of the title
    */
   void sendTitle(
     IComponent title, IComponent subtitle,
     int fadeIn, int duration, int fadeOut,
-    Player p
+    ICustomizableViewer viewer
   );
 
 }

@@ -1,11 +1,11 @@
 package me.blvckbytes.bblibconfig.component;
 
+import me.blvckbytes.bblibreflect.ICustomizableViewer;
 import me.blvckbytes.bblibdi.AutoConstruct;
 import me.blvckbytes.bblibdi.AutoInject;
 import me.blvckbytes.bblibreflect.MCReflect;
 import me.blvckbytes.bblibreflect.ReflClass;
 import me.blvckbytes.bblibutil.logger.ILogger;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -64,7 +64,7 @@ public class ComponentApplicator implements IComponentApplicator {
   }
 
   @Override
-  public void setDisplayName(IComponent displayName, ItemStack item) {
+  public void setDisplayName(IComponent displayName, boolean approximateColors, ItemStack item) {
     ItemMeta meta = item.getItemMeta();
 
     // Meta unavailable
@@ -88,8 +88,8 @@ public class ComponentApplicator implements IComponentApplicator {
       f.set(
         meta,
         isJson ?
-          displayName.toJson().toString() :
-          reflect.chatComponentFromJson(displayName.toJson())
+          displayName.toJson(approximateColors).toString() :
+          reflect.chatComponentFromJson(displayName.toJson(approximateColors))
       );
 
       item.setItemMeta(meta);
@@ -99,7 +99,7 @@ public class ComponentApplicator implements IComponentApplicator {
   }
 
   @Override
-  public void setLore(List<? extends IComponent> lines, ItemStack item) {
+  public void setLore(List<? extends IComponent> lines, boolean approximateColors, ItemStack item) {
     ItemMeta meta = item.getItemMeta();
 
     // Meta unavailable
@@ -109,7 +109,7 @@ public class ComponentApplicator implements IComponentApplicator {
     try {
       // Jsonify all lore lines
       List<String> lore = lines.stream()
-        .map(c -> c.toJson().toString())
+        .map(c -> c.toJson(approximateColors).toString())
         .collect(Collectors.toList());
 
       // Overwrite the list ref
@@ -122,25 +122,25 @@ public class ComponentApplicator implements IComponentApplicator {
   }
 
   @Override
-  public void sendChat(IComponent message, Player p) {
+  public void sendChat(IComponent message, ICustomizableViewer viewer) {
     try {
-      reflect.sendSerialized(p, message.toJson(), 0);
+      reflect.sendSerialized(viewer, message.toJson(false), 0);
     } catch (Exception e) {
       logger.logError(e);
     }
   }
 
   @Override
-  public void sendActionBar(IComponent text, Player p) {
+  public void sendActionBar(IComponent text, ICustomizableViewer viewer) {
     try {
-      reflect.sendSerialized(p, text.toJson(), 2);
+      reflect.sendSerialized(viewer, text.toJson(false), 2);
     } catch (Exception e) {
       logger.logError(e);
     }
   }
 
   @Override
-  public void sendTitle(IComponent title, IComponent subtitle, int fadeIn, int duration, int fadeOut, Player p) {
+  public void sendTitle(IComponent title, IComponent subtitle, int fadeIn, int duration, int fadeOut, ICustomizableViewer viewer) {
     try {
       Object setTimes, setTitle, setSubtitle;
 
@@ -161,12 +161,10 @@ public class ComponentApplicator implements IComponentApplicator {
       reflect.setFieldByType(setTimes, int.class, fadeIn, 0);
       reflect.setFieldByType(setTimes, int.class, duration, 1);
       reflect.setFieldByType(setTimes, int.class, fadeOut, 2);
-      reflect.setFieldByType(setTitle, I_CHAT_BASE_COMPONENT_C, reflect.chatComponentFromJson(title.toJson()), 0);
-      reflect.setFieldByType(setSubtitle, I_CHAT_BASE_COMPONENT_C, reflect.chatComponentFromJson(subtitle.toJson()), 0);
+      reflect.setFieldByType(setTitle, I_CHAT_BASE_COMPONENT_C, reflect.chatComponentFromJson(title.toJson(false)), 0);
+      reflect.setFieldByType(setSubtitle, I_CHAT_BASE_COMPONENT_C, reflect.chatComponentFromJson(subtitle.toJson(false)), 0);
 
-      reflect.sendPacket(p, setTimes);
-      reflect.sendPacket(p, setTitle);
-      reflect.sendPacket(p, setSubtitle);
+      viewer.sendPackets(setTimes, setTimes, setSubtitle);
     } catch (Exception e) {
       logger.logError(e);
     }

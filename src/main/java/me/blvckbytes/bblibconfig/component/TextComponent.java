@@ -37,14 +37,10 @@ import java.util.List;
 @Getter
 public class TextComponent implements IComponent {
 
-  private static final boolean approximateRgb;
   private static final Map<ChatColor, Color> vanillaColors;
 
   static {
     vanillaColors = generateVanillaColors();
-
-    // TODO: Properly decide on this value based on the server version
-    approximateRgb = false;
   }
 
   private final @Nullable String text;
@@ -57,10 +53,10 @@ public class TextComponent implements IComponent {
 
   // Hover event
   private @Nullable HoverAction hoverAction;
-  private @Nullable String hoverValue;
+  private @Nullable IComponent hoverValue;
 
-  // Custom color
-  private @Nullable String color;
+  // Custom color as well as it's chat-color approximation (only for hex values)
+  private @Nullable String color, approximatedColor;
 
   /**
    * Create a new text component from plain text without any pre-processing
@@ -70,18 +66,32 @@ public class TextComponent implements IComponent {
     this(text, null);
   }
 
+  /**
+   * Create a new text component from plain text without any pre-processing
+   * but with a color property value
+   * @param text Component's text value
+   * @param color Color of the component, optional
+   */
   private TextComponent(@Nullable String text, @Nullable String color) {
     this.formatting = new boolean[TextFormatting.values.length];
     this.siblings = new ArrayList<>();
     this.text = text;
-    this.color = translateColor(color);
+    this.color = color;
+    this.approximatedColor = translateColor(color);
   }
 
+  /**
+   * Create a new text component from plain text without any pre-processing
+   * but with a color property value as well as formatting flags
+   * @param text Component's text value
+   * @param color Color of the component, optional
+   * @param formatting Formatting modes
+   */
   private TextComponent(@Nullable String text, @Nullable String color, boolean[] formatting) {
     this(text, color);
 
-    // Copy into the local array to have a new ref
-    System.arraycopy(formatting, 0, this.formatting, 0, formatting.length);
+    // Copy into the local array to avoid mutability
+    System.arraycopy(formatting, 0, this.formatting, 0, Math.min(this.formatting.length, formatting.length));
   }
 
   /////////////////////////////// Miscellanoeus ///////////////////////////////
@@ -108,7 +118,8 @@ public class TextComponent implements IComponent {
    * @param color Color to set
    */
   public void setColor(String color) {
-    this.color = translateColor(color);
+    this.color = color;
+    this.approximatedColor = translateColor(color);
   }
 
   ///////////////////////////////// Clicking //////////////////////////////////
@@ -138,7 +149,22 @@ public class TextComponent implements IComponent {
    * @param action Action to be executed
    * @param value Action value
    */
-  public void setHover(HoverAction action, String value) {
+  public TextComponent setHover(HoverAction action, String value) {
+    this.hoverAction = action;
+
+    // Create a new plain text component
+    TextComponent comp = new TextComponent(value);
+    this.hoverValue = comp;
+
+    return comp;
+  }
+
+  /**
+   * Set what happens when the message is being hovered within the chat
+   * @param action Action to be executed
+   * @param value Action value
+   */
+  public void setHover(HoverAction action, TextComponent value) {
     this.hoverAction = action;
     this.hoverValue = value;
   }
@@ -154,21 +180,25 @@ public class TextComponent implements IComponent {
   ///////////////////////////////// Generation /////////////////////////////////
 
   @Override
-  public JsonObject toJson() {
+  public JsonObject toJson(boolean approximateColors) {
     JsonObject res = new JsonObject();
 
     // Set text
     res.addProperty("text", this.text == null ? "" : this.text);
 
-    // Apply color
-    if (this.color != null)
+    // Apply HEX color
+    if (!approximateColors && this.color != null)
       res.addProperty("color", this.color);
+
+    // Apply approximated color
+    if (approximateColors && this.approximatedColor != null)
+      res.addProperty("color", this.approximatedColor);
 
     // Apply hovering
     if (this.hoverAction != null && this.hoverValue != null) {
       JsonObject action = new JsonObject();
       action.addProperty("action", this.hoverAction.name().toLowerCase());
-      action.addProperty("value", this.hoverValue);
+      action.add("value", this.hoverValue.toJson(approximateColors));
       res.add("hoverEvent", action);
     }
 
@@ -193,7 +223,7 @@ public class TextComponent implements IComponent {
     // Append all siblings
     if (siblings.size() > 0) {
       JsonArray extra = new JsonArray();
-      siblings.forEach(s -> extra.add(s.toJson()));
+      siblings.forEach(s -> extra.add(s.toJson(approximateColors)));
       res.add("extra", extra);
     }
 
@@ -201,14 +231,33 @@ public class TextComponent implements IComponent {
   }
 
   @Override
-  public String asString() {
-    // TODO: Implement
-    return null;
+  public String toPlainText() {
+    StringBuilder sb = new StringBuilder();
+
+    // Append only approximated colors, if available
+    if (this.approximatedColor != null)
+      sb.append(this.approximatedColor);
+
+    // Append all active text formattings, one after the other
+    for (int i = 0; i < this.formatting.length; i++) {
+      if (this.formatting[i])
+        sb.append("§").append(TextFormatting.values[i].getMarker());
+    }
+
+    // Append the text itself, if available
+    if (this.text != null)
+      sb.append(this.text);
+
+    // Append the contents of all siblings
+    for (IComponent sibling : siblings)
+      sb.append(sibling.toPlainText());
+
+    return sb.toString();
   }
 
   @Override
   public String toString() {
-    return toJson().toString();
+    return toJson(false).toString();
   }
 
   /////////////////////////////////// Parsing //////////////////////////////////
@@ -364,7 +413,12 @@ public class TextComponent implements IComponent {
    * @param gradientGenerator Gradient generator ref for generating gradients from gradient notation, optional
    * @param resetProperties Whether to reset all properties as well
    */
-  private static void pushAndReset(ChildContentState state, TextComponent head, @Nullable GradientGenerator gradientGenerator, boolean resetProperties) {
+  private static void pushAndReset(
+    ChildContentState state,
+    TextComponent head,
+    @Nullable GradientGenerator gradientGenerator,
+    boolean resetProperties
+  ) {
 
     // Don't push empty components
     if (state.value.length() > 0) {
@@ -493,9 +547,9 @@ public class TextComponent implements IComponent {
    * @return Translated color, if applicable
    */
   private static @Nullable String translateColor(@Nullable String color) {
-    // Not in approximation mode or color is null
-    if (!approximateRgb || color == null)
-      return color;
+    // Pass through null values
+    if (color == null)
+      return null;
 
     // Not a hex value, cannot translate anything
     Color hex = parseColor(color);

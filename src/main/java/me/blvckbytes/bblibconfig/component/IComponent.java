@@ -26,12 +26,13 @@ public interface IComponent {
   /**
    * Transforms the components and all of it's properties into
    * the minecraft protocol compliant JSON representation
+   * @param approximateColors Whether to approximate HEX colors as ChatColors
    */
-  JsonObject toJson();
+  JsonObject toJson(boolean approximateColors);
 
   /**
-   * Get the plain string representation
+   * Get the plain text representation
    */
-  String asString();
+  String toPlainText();
 
 }
