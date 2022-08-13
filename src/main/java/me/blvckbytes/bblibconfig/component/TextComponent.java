@@ -4,14 +4,13 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.Setter;
 import me.blvckbytes.bblibconfig.GradientGenerator;
 import me.blvckbytes.bblibutil.Tuple;
+import org.bukkit.ChatColor;
 import org.jetbrains.annotations.Nullable;
 
 import java.awt.*;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.*;
 import java.util.List;
 
 /*
@@ -38,7 +37,15 @@ import java.util.List;
 @Getter
 public class TextComponent implements IComponent {
 
-  // TODO: Implement color approximations for hex colors when on < 1.16
+  private static final boolean approximateRgb;
+  private static final Map<ChatColor, Color> vanillaColors;
+
+  static {
+    vanillaColors = generateVanillaColors();
+
+    // TODO: Properly decide on this value based on the server version
+    approximateRgb = true;
+  }
 
   private final @Nullable String text;
   private final boolean[] formatting;
@@ -53,7 +60,7 @@ public class TextComponent implements IComponent {
   private @Nullable String hoverValue;
 
   // Custom color
-  @Setter private @Nullable String color;
+  private @Nullable String color;
 
   /**
    * Create a new text component from plain text without any pre-processing
@@ -67,7 +74,7 @@ public class TextComponent implements IComponent {
     this.formatting = new boolean[TextFormatting.values.length];
     this.siblings = new ArrayList<>();
     this.text = text;
-    this.color = color;
+    this.color = translateColor(color);
   }
 
   private TextComponent(@Nullable String text, @Nullable String color, boolean[] formatting) {
@@ -94,6 +101,14 @@ public class TextComponent implements IComponent {
    */
   public void addSibling(IComponent component) {
     this.siblings.add(component);
+  }
+
+  /**
+   * Set a new color value
+   * @param color Color to set
+   */
+  public void setColor(String color) {
+    this.color = translateColor(color);
   }
 
   ///////////////////////////////// Clicking //////////////////////////////////
@@ -376,5 +391,118 @@ public class TextComponent implements IComponent {
       state.color = null;
       state.gradient = null;
     }
+  }
+
+  ///////////////////////////// Color Approximation ////////////////////////////
+
+  /**
+   * Generates a map which corresponds vanilla chat colors
+   * to the RGB version the client renders (very close)
+   * <a href="https://htmlcolorcodes.com/minecraft-color-codes/">Source</a>
+   */
+  private static Map<ChatColor, Color> generateVanillaColors() {
+    Map<ChatColor, Color> res = new LinkedHashMap<>();
+
+    res.put(ChatColor.BLACK, new Color(0x00, 0x00, 0x00));
+    res.put(ChatColor.DARK_BLUE, new Color(0x00, 0x00, 0xAA));
+    res.put(ChatColor.DARK_GREEN, new Color(0x00, 0xAA, 0x00));
+    res.put(ChatColor.DARK_AQUA, new Color(0x00, 0xAA, 0xAA));
+    res.put(ChatColor.DARK_RED, new Color(0xAA, 0x00, 0x00));
+    res.put(ChatColor.DARK_PURPLE, new Color(0xAA, 0x00, 0xAA));
+    res.put(ChatColor.GOLD, new Color(0xFF, 0xAA, 0x00));
+    res.put(ChatColor.GRAY, new Color(0xAA, 0xAA, 0xAA));
+    res.put(ChatColor.DARK_GRAY, new Color(0x55, 0x55, 0x55));
+    res.put(ChatColor.BLUE, new Color(0x55, 0x55, 0xFF));
+    res.put(ChatColor.GREEN, new Color(0x55, 0xFF, 0x55));
+    res.put(ChatColor.AQUA, new Color(0x55, 0xFF, 0xFF));
+    res.put(ChatColor.RED, new Color(0xFF, 0x55, 0x55));
+    res.put(ChatColor.LIGHT_PURPLE, new Color(0xFF, 0x55, 0xFF));
+    res.put(ChatColor.YELLOW, new Color(0xFF, 0xFF, 0x55));
+    res.put(ChatColor.WHITE, new Color(0xFF, 0xFF, 0xFF));
+
+    return res;
+  }
+
+  /**
+   * Calculate the absolute (always positive) difference between two colors
+   * @param a Color A
+   * @param b Color B
+   * @return Positive difference
+   */
+  private static int absColorDifference(Color a, Color b) {
+    return (
+      Math.abs(a.getRed() - b.getRed()) +
+      Math.abs(a.getGreen() - b.getGreen()) +
+      Math.abs(a.getBlue() - b.getBlue())
+    );
+  }
+
+  /**
+   * Find the closest chat color match to any given color
+   * @param color Target color
+   * @return Closest chat color match
+   */
+  private static ChatColor findClosestMatch(Color color) {
+    Map.Entry<ChatColor, Color> closest = null;
+    int closestDiff = Integer.MAX_VALUE;
+
+    // Find the color with the smallest delta
+    for (Map.Entry<ChatColor, Color> e : vanillaColors.entrySet()) {
+      // Initially set to the first value
+      if (closest == null) {
+        closest = e;
+        continue;
+      }
+
+      // Update if the diff is smaller than before
+      int currDiff = absColorDifference(color, e.getValue());
+      if (currDiff < closestDiff) {
+        closest = e;
+        closestDiff = currDiff;
+      }
+    }
+
+    // Will never be null, as there are always values hard-coded
+    assert closest != null;
+    return closest.getKey();
+  }
+
+  /**
+   * Parses a color from it's hex representation
+   * @param input Color to parse
+   * @return Parsed color or null if unparsable
+   */
+  private static @Nullable Color parseColor(String input) {
+    if (!input.startsWith("#"))
+      return null;
+
+    try {
+      return new Color(
+        Integer.parseInt(input.substring(1, 3), 16),
+        Integer.parseInt(input.substring(3, 5), 16),
+        Integer.parseInt(input.substring(5, 7), 16)
+      );
+    } catch (Exception e) {
+      return null;
+    }
+  }
+
+  /**
+   * Translate any given color if it's a hex color and approximation mode is enabled
+   * @param color Color to translate
+   * @return Translated color, if applicable
+   */
+  private static @Nullable String translateColor(@Nullable String color) {
+    // Not in approximation mode or color is null
+    if (!approximateRgb || color == null)
+      return color;
+
+    // Not a hex value, cannot translate anything
+    Color hex = parseColor(color);
+    if (hex == null)
+      return color;
+
+    // Respond with the closest matching ChatColor's name
+    return findClosestMatch(hex).name().toLowerCase();
   }
 }
