@@ -7,7 +7,8 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import me.blvckbytes.bblibconfig.component.IComponentApplicator;
 import me.blvckbytes.bblibconfig.component.TextComponent;
-import me.blvckbytes.bblibconfig.sections.ItemStackSection;
+import me.blvckbytes.bblibconfig.sections.*;
+import me.blvckbytes.bblibreflect.ICustomizableViewer;
 import me.blvckbytes.bblibutil.Tuple;
 import org.bukkit.Color;
 import org.bukkit.Material;
@@ -23,7 +24,6 @@ import org.jetbrains.annotations.Nullable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.*;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /*
@@ -46,74 +46,103 @@ import java.util.stream.Collectors;
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
-public class ItemBuilder {
+public class ItemBuilder implements IItemBuildable {
 
   private final ItemStack stack;
-  private ItemMeta meta;
+  private final ItemMeta meta;
 
-  // Name and lore should only be evaluated at the build-step
-  // in order to allow for extra variable injection
-  private @Nullable ConfigValue name;
   private boolean loreOverride;
+  private boolean flagsOverride;
+  private boolean enchantmentsOverride;
+  private boolean customEffectsOverride;
+  private boolean patternOverride;
+
+  private @Nullable ConfigValue name;
+  private @Nullable ConfigValue cAmount;
+  private @Nullable ConfigValue cType;
+  private @Nullable ConfigValue cColor;
+  private @Nullable ConfigValue cTextures;
+  private @Nullable ItemStackBaseEffectSection cBaseEffect;
+
   private final List<ConfigValue> lore;
+  private final List<ItemStackEnchantmentSection> cEnchantments;
+  private final List<ConfigValue> cFlags;
+  private final List<ItemStackBannerPatternSection> cPatterns;
+  private final List<ItemStackCustomEffectSection> cCustomEffects;
 
   private final IComponentApplicator componentApplicator;
   private final GradientGenerator gradientGenerator;
 
-  /**
-   * Create a new builder for a specific material
-   * @param mat Material to target
-   * @param amount Amount of items
-   */
-  public ItemBuilder(
-    Material mat,
+  ItemBuilder(
+    ItemStack item,
     int amount,
     IComponentApplicator componentApplicator,
     GradientGenerator gradientGenerator
   ) {
-    this.componentApplicator = componentApplicator;
-    this.gradientGenerator = gradientGenerator;
+    if (item == null)
+      throw new IllegalStateException("Item cannot be null.");
 
-    this.stack = new ItemStack(mat, amount);
-    this.meta = stack.getItemMeta();
-    this.lore = new ArrayList<>();
-  }
+    this.stack = item;
+    this.meta = item.getItemMeta();
 
-  /**
-   * Create a new builder for a player-head
-   * @param profile Profile to apply to the head
-   */
-  public ItemBuilder(
-    GameProfile profile,
-    IComponentApplicator componentApplicator,
-    GradientGenerator gradientGenerator
-  ) {
-    this(XMaterial.PLAYER_HEAD.parseMaterial(), 1, componentApplicator, gradientGenerator);
+    if (this.meta == null)
+      throw new IllegalStateException("Invalid item provided.");
 
-    // Is a player-head where textures should be applied
-    // and there has been a profile provided
-    if (profile != null)
-      setHeadProfile(profile);
-  }
-
-  /**
-   * Create a new builder based on an existing item stack
-   * @param from Existing item stack to mimic
-   * @param amount Amount of items
-   */
-  public ItemBuilder(
-    ItemStack from,
-    int amount,
-    IComponentApplicator componentApplicator,
-    GradientGenerator gradientGenerator
-  ) {
-    this.componentApplicator = componentApplicator;
-    this.gradientGenerator = gradientGenerator;
-
-    this.stack = from.clone();
     this.stack.setAmount(amount);
-    this.meta = stack.getItemMeta();
+    this.componentApplicator = componentApplicator;
+    this.gradientGenerator = gradientGenerator;
+
     this.lore = new ArrayList<>();
+    this.cEnchantments = new ArrayList<>();
+    this.cFlags = new ArrayList<>();
+    this.cCustomEffects = new ArrayList<>();
+    this.cPatterns = new ArrayList<>();
+  }
+
+  //=========================================================================//
+  //                                 Builder                                 //
+  //=========================================================================//
+
+  /**
+   * Change the type of this item
+   * @param material New type
+   */
+  public ItemBuilder setType(Material material) {
+    stack.setType(material);
+    return this;
+  }
+
+  /**
+   * Change the type of this item
+   * @param material New type
+   */
+  public ItemBuilder setConfigType(ConfigValue material) {
+    if (material == null)
+      return this;
+
+    cType = material;
+    return this;
+  }
+
+  /**
+   * Change the amount of this item
+   * @param amount New amount
+   */
+  public ItemBuilder setAmount(int amount) {
+    stack.setAmount(amount);
+    return this;
+  }
+
+  /**
+   * Change the amount of this item
+   * @param amount New amount
+   */
+  public ItemBuilder setConfigAmount(ConfigValue amount) {
+    if (amount == null)
+      return this;
+
+    cAmount = amount;
+    return this;
   }
 
   /**
@@ -122,88 +151,96 @@ public class ItemBuilder {
    * @param level Level to add the enchantment with
    */
   public ItemBuilder withEnchantment(Enchantment enchantment, int level) {
-    if (this.meta != null)
-      this.meta.addEnchant(enchantment, level, true);
+    this.meta.addEnchant(enchantment, level, true);
     return this;
   }
 
   /**
-   * Add enchantments to the item
-   * @param enchantments Enchantments to add
-   * @param condition Boolean which has to evaluate to true in order to apply the enchantments
+   * Add a enchantment section array to this item
+   * @param enchantments Enchantment section
    */
-  public ItemBuilder withEnchantments(Supplier<List<Tuple<Enchantment, Integer>>> enchantments, boolean condition) {
-    if (condition && this.meta != null) {
-      enchantments.get().forEach(ench -> withEnchantment(ench.getA(), ench.getB()));
-    }
+  public ItemBuilder withConfigEnchantments(ItemStackEnchantmentSection[] enchantments) {
+    enchantmentsOverride = false;
+    cEnchantments.addAll(Arrays.asList(enchantments));
     return this;
   }
 
   /**
-   * Hides all attributes on this item
+   * Add a enchantment section array to this item
+   * @param enchantments Enchantment section
    */
-  public ItemBuilder hideAttributes() {
-    if (this.meta != null)
-      this.meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+  public ItemBuilder withOverridingConfigEnchantments(ItemStackEnchantmentSection[] enchantments) {
+    enchantmentsOverride = true;
+    cEnchantments.clear();
+    cEnchantments.addAll(Arrays.asList(enchantments));
     return this;
   }
 
-  /**
-   * Add a list of itemflags to this item
-   */
-  public ItemBuilder withFlags(Supplier<List<ItemFlag>> flags, boolean condition) {
-    if (condition && this.meta != null)
-      flags.get().forEach(this.meta::addItemFlags);
+  public ItemBuilder withFlag(ItemFlag flag) {
+    this.meta.addItemFlags(flag);
     return this;
   }
 
-  /**
-   * Add a color to this item (only applicable to leather armor or potions)
-   * @param color Color to add
-   */
-  public ItemBuilder withColor(Supplier<Color> color, boolean condition) {
-    if (!condition)
+  public ItemBuilder withConfigFlags(@Nullable ConfigValue flag) {
+    if (flag == null)
       return this;
 
-    if (this.meta instanceof LeatherArmorMeta)
-      ((LeatherArmorMeta) this.meta).setColor(color.get());
-
-    else if (this.meta instanceof PotionMeta)
-      ((PotionMeta) this.meta).setColor(color.get());
-
-    else if (this.meta instanceof MapMeta)
-      ((MapMeta) this.meta).setColor(color.get());
-
+    this.flagsOverride = false;
+    this.cFlags.add(flag.copy());
     return this;
   }
 
-  /**
-   * Set the base effect of this item (only applicable to potions)
-   * @param data Base effect to set
-   * @param condition Boolean which has to evaluate to true in order to apply the effect
-   */
-  public ItemBuilder withBaseEffect(Supplier<PotionData> data, boolean condition) {
-    if (!condition)
+  public ItemBuilder withOverridingConfigFlags(@Nullable ConfigValue flag) {
+    if (flag == null)
       return this;
 
-    if (this.meta instanceof PotionMeta)
-      ((PotionMeta) this.meta).setBasePotionData(data.get());
-
+    this.flagsOverride = true;
+    this.cFlags.clear();
+    this.cFlags.add(flag.copy());
     return this;
   }
 
-  /**
-   * Add custom effects to this item (only applicable to potions)
-   * @param effects Custom effects to add
-   * @param condition Boolean which has to evaluate to true in order to apply the effects
-   */
-  public ItemBuilder withCustomEffects(Supplier<List<PotionEffect>> effects, boolean condition) {
-    if (!condition)
+  public ItemBuilder withColor(Color color) {
+    this.applyColor(color);
+    return this;
+  }
+
+  public ItemBuilder withConfigColor(@Nullable ConfigValue color) {
+    if (color == null)
       return this;
 
-    if (this.meta instanceof PotionMeta)
-      effects.get().forEach(effect -> ((PotionMeta) this.meta).addCustomEffect(effect, true));
+    this.cColor = color.copy();
+    return this;
+  }
 
+  public ItemBuilder withBaseEffect(PotionData effect) {
+    this.applyBaseEffect(effect);
+    return this;
+  }
+
+  public ItemBuilder withConfigBaseEffect(@Nullable ItemStackBaseEffectSection effect) {
+    if (effect == null)
+      return this;
+
+    this.cBaseEffect = effect;
+    return this;
+  }
+
+  public ItemBuilder withCustomEffect(PotionEffect effect) {
+    this.applyCustomEffect(effect);
+    return this;
+  }
+
+  public ItemBuilder withConfigCustomEffects(ItemStackCustomEffectSection[] effects) {
+    this.customEffectsOverride = false;
+    this.cCustomEffects.addAll(Arrays.asList(effects));
+    return this;
+  }
+
+  public ItemBuilder withOverridingConfigCustomEffects(ItemStackCustomEffectSection[] effects) {
+    this.customEffectsOverride = true;
+    this.cCustomEffects.clear();
+    this.cCustomEffects.addAll(Arrays.asList(effects));
     return this;
   }
 
@@ -211,51 +248,8 @@ public class ItemBuilder {
    * Set a display name
    * @param name Name to set
    */
-  public ItemBuilder withName(ConfigValue name) {
-    return this.withName(name, true);
-  }
-
-  /**
-   * Set a display name conditionally
-   * @param name Name to set
-   * @param condition Boolean which has to evaluate to true in order to apply the name
-   */
-  public ItemBuilder withName(ConfigValue name, boolean condition) {
-    if (condition)
-      this.name = name;
-    return this;
-  }
-
-  /**
-   * Set a display name conditionally
-   * @param name Name to set
-   * @param condition Boolean which has to evaluate to true in order to apply the name
-   */
-  public ItemBuilder withName(Supplier<ConfigValue> name, boolean condition) {
-    if (condition)
-      this.name = name.get();
-    return this;
-  }
-
-  /**
-   * Add a lore to the existing lore conditionally
-   * @param lore Lines to set
-   * @param condition Boolean which has to evaluate to true in order to apply the lore
-   */
-  public ItemBuilder withLore(ConfigValue lore, boolean condition) {
-    if (condition)
-      this.lore.add(lore);
-    return this;
-  }
-
-  /**
-   * Add a lore to the existing lore conditionally
-   * @param lore Lines to set
-   * @param condition Boolean which has to evaluate to true in order to apply the lore
-   */
-  public ItemBuilder withLore(Supplier<ConfigValue> lore, boolean condition) {
-    if (condition)
-      this.lore.add(lore.get());
+  public ItemBuilder withName(@Nullable ConfigValue name) {
+    this.name = name == null ? null : name.copy();
     return this;
   }
 
@@ -263,97 +257,49 @@ public class ItemBuilder {
    * Add a lore to the existing lore
    * @param lore Lines to set
    */
-  public ItemBuilder withLore(ConfigValue lore) {
-    return withLore(lore, true);
+  public ItemBuilder withLore(@Nullable ConfigValue lore) {
+    if (lore == null)
+      return this;
+
+    this.lore.add(lore.copy());
+    this.loreOverride = false;
+    return this;
   }
 
   /**
    * Override all lore lines with the provided lore
    * @param lore Lines to set
    */
-  public ItemBuilder setLore(ConfigValue lore) {
+  public ItemBuilder withOverridingLore(@Nullable ConfigValue lore) {
+    if (lore == null)
+      return this;
+
     this.lore.clear();
-    this.lore.add(lore);
+    this.lore.add(lore.copy());
     this.loreOverride = true;
     return this;
   }
 
-  /**
-   * Set the head textures of this item
-   * @param textures Base64 encoded textures to set
-   * @param condition Boolean which has to evaluate to true in order to apply the textures
-   */
-  public ItemBuilder withTextures(Supplier<String> textures, boolean condition) {
-    if (condition && this.meta != null) {
-      GameProfile prof = new GameProfile(UUID.randomUUID(), null);
-      prof.getProperties().put("textures", new Property("textures", textures.get()));
-      setHeadProfile(prof);
-    }
+  public ItemBuilder withTextures(String textures) {
+    this.applyTextures(textures);
     return this;
   }
 
-  /**
-   * Set a new pattern on this banner
-   * @param patterns Pattern to add
-   */
-  public ItemBuilder setPatterns(Supplier<List<Pattern>> patterns, boolean condition) {
-    if (!condition)
+  public ItemBuilder withConfigTextures(@Nullable ConfigValue textures) {
+    if (textures == null)
       return this;
 
-    if (meta instanceof BannerMeta)
-      ((BannerMeta) this.meta).setPatterns(patterns.get());
-
+    this.cTextures = textures.copy();
     return this;
-  }
-
-  /**
-   * Build this item by applying the cached metainfo to the stack
-   */
-  public ItemStack build() {
-    return this.build(null);
-  }
-
-  /**
-   * Build this item by applying the cached metainfo to the stack
-   * @param variables Optional variables to apply to the name and lore
-   */
-  public ItemStack build(@Nullable Map<String, String> variables) {
-    ItemStack res = stack.clone();
-
-    // Name requested
-    if (name != null) {
-      if (variables != null)
-        name.withVariables(variables);
-      componentApplicator.setDisplayName(name.asComponent(gradientGenerator), res);
-    }
-
-    // Lore requested
-    if (lore.size() > 0) {
-      List<TextComponent> lines = new ArrayList<>();
-
-      // Append old lines first, if applicable
-      if (!loreOverride && meta.getLore() != null) {
-        for (String line : meta.getLore())
-          lines.add(new TextComponent(line));
-      }
-
-      // Extend by new lore lines
-      for (ConfigValue line : lore)
-        lines.addAll(line.withVariables(variables).asComponentList(gradientGenerator));
-
-      componentApplicator.setLore(lines, res);
-    }
-
-    return res;
   }
 
   /**
    * Sets the head game profile of the item-meta
    * @param profile Game profile to set
    */
-  private void setHeadProfile(GameProfile profile) {
+  public ItemBuilder withHeadProfile(GameProfile profile) {
     if (this.meta == null || !(this.meta instanceof SkullMeta))
-      return;
+      return this;
 
     // Try to find the setProfile method
     Method setProfileMethod = null;
@@ -371,7 +317,7 @@ public class ItemBuilder {
       if (setProfileMethod != null) {
         setProfileMethod.setAccessible(true);
         setProfileMethod.invoke(this.meta, profile);
-        return;
+        return this;
       }
 
       // Method unavailable, just set the GameProfile field
@@ -381,86 +327,324 @@ public class ItemBuilder {
     } catch (Exception e) {
       e.printStackTrace();
     }
+
+    return this;
   }
 
-  /**
-   * Create a carbon copy of this instance
-   */
+  public ItemBuilder withPatterns(List<Pattern> patterns) {
+    patterns.forEach(this::applyPattern);
+    return this;
+  }
+
+  public ItemBuilder withConfigPatterns(ItemStackBannerPatternSection[] patterns) {
+    this.patternOverride = false;
+    this.cPatterns.addAll(Arrays.asList(patterns));
+    return this;
+  }
+
+  public ItemBuilder withOverridingConfigPatterns(ItemStackBannerPatternSection[] patterns) {
+    this.patternOverride = true;
+    this.cPatterns.clear();
+    this.cPatterns.addAll(Arrays.asList(patterns));
+    return this;
+  }
+
+  //=========================================================================//
+  //                              IItemBuildable                             //
+  //=========================================================================//
+
+  @Override
+  public ItemStack build() {
+    // Build without any customizations
+    return build(null, null);
+  }
+
+  @Override
+  public ItemStack build(@Nullable Map<String, String> variables, @Nullable ICustomizableViewer viewer) {
+    ItemStack res = stack.clone();
+    ItemMeta resMeta = res.getItemMeta();
+
+    if (resMeta == null)
+      throw new IllegalStateException("Invalid item provided.");
+
+    //////////////////////////////////// Type ///////////////////////////////////
+
+    if (cType != null) {
+      XMaterial type = cType.copy().withVariables(variables).asScalar(XMaterial.class);
+
+      if (type != null) {
+        type.setType(res);
+        resMeta = res.getItemMeta();
+
+        if (resMeta == null)
+          throw new IllegalStateException("Invalid item provided.");
+      }
+    }
+
+    ////////////////////////////////// Amount ///////////////////////////////////
+
+    if (cAmount != null) {
+      Integer amount = cAmount.copy().withVariables(variables).asScalar(Integer.class);
+
+      if (amount != null)
+        res.setAmount(amount);
+    }
+
+    //////////////////////////////// Displayname ////////////////////////////////
+
+    if (name != null) {
+      componentApplicator.setDisplayName(
+        name.copy().withVariables(variables).asComponent(gradientGenerator),
+        viewer != null && viewer.cannotRenderHexColors(),
+        res
+      );
+    }
+
+    /////////////////////////////////// Lore ///////////////////////////////////
+
+    if (loreOverride)
+      resMeta.setLore(null);
+
+    if (lore.size() > 0) {
+      // Get old lore lines to extend, if applicable
+      List<TextComponent> lines = (
+        resMeta.getLore() == null ?
+          new ArrayList<>() :
+          resMeta.getLore().stream()
+            .map(TextComponent::new)
+            .collect(Collectors.toList())
+      );
+
+      // Extend by new lore lines
+      for (ConfigValue line : lore)
+        lines.addAll(line.copy().withVariables(variables).asComponentList(gradientGenerator));
+
+      componentApplicator.setLore(
+        lines,
+        viewer != null && viewer.cannotRenderHexColors(),
+        res
+      );
+    }
+
+    /////////////////////////////////// Color //////////////////////////////////
+
+    if (cColor != null)
+      applyColor(cColor.copy().withVariables(variables).asScalar(Color.class));
+
+    ////////////////////////////////// Textures /////////////////////////////////
+
+    if (cTextures != null)
+      applyTextures(cTextures.copy().withVariables(variables).asScalar());
+
+    //////////////////////////////// Base Effect ////////////////////////////////
+
+    if (cBaseEffect != null)
+      applyBaseEffect(cBaseEffect.asData(variables));
+
+    ////////////////////////////// Custom Effects ///////////////////////////////
+
+    if (resMeta instanceof PotionMeta) {
+      if (customEffectsOverride)
+        ((PotionMeta) resMeta).clearCustomEffects();
+
+      if (cCustomEffects.size() > 0)
+        cCustomEffects.forEach(eff -> applyCustomEffect(eff.asEffect(variables)));
+    }
+
+    //////////////////////////////// Enchantments ///////////////////////////////
+
+    if (enchantmentsOverride)
+      resMeta.getEnchants().keySet().forEach(resMeta::removeEnchant);
+
+    if (cEnchantments.size() > 0) {
+      cEnchantments.forEach(ench -> {
+        Tuple<Enchantment, Integer> enchantment = ench.asEnchantment(variables);
+
+        // Invalid enchantment
+        if (enchantment == null)
+          return;
+
+        // Apply enchantment
+        meta.addEnchant(enchantment.getA(), enchantment.getB(), true);
+      });
+    }
+
+    ///////////////////////////////// Item Flags ////////////////////////////////
+
+    if (flagsOverride)
+      resMeta.removeItemFlags(resMeta.getItemFlags().toArray(ItemFlag[]::new));
+
+    if (cFlags.size() > 0) {
+      cFlags.forEach(f -> {
+        // Try to parse into an ItemFlag
+        ItemFlag flag = f.asScalar(ItemFlag.class);
+
+        if (flag != null)
+          meta.addItemFlags(flag);
+      });
+    }
+
+    /////////////////////////////// Banner Patterns /////////////////////////////
+
+    if (resMeta instanceof BannerMeta) {
+      if (patternOverride) {
+        BannerMeta bm = (BannerMeta) resMeta;
+        while (bm.getPatterns().size() > 0)
+          bm.removePattern(0);
+      }
+
+      if (cPatterns.size() > 0)
+        cPatterns.forEach(p -> applyPattern(p.asPattern(variables)));
+    }
+
+    return res;
+  }
+
+  @Override
   public ItemBuilder copy() {
+    // Shallow list copies are enough, as config-values are always copied themselves
     return new ItemBuilder(
-      stack.clone(), meta.clone(), name, loreOverride, new ArrayList<>(lore), componentApplicator, gradientGenerator
+      new ItemStack(stack),
+      meta.clone(),
+      loreOverride,
+      flagsOverride,
+      enchantmentsOverride,
+      customEffectsOverride,
+      patternOverride,
+      name,
+      cAmount,
+      cType,
+      cColor,
+      cTextures,
+      cBaseEffect,
+      new ArrayList<>(lore),
+      new ArrayList<>(cEnchantments),
+      new ArrayList<>(cFlags),
+      new ArrayList<>(cPatterns),
+      new ArrayList<>(cCustomEffects),
+      componentApplicator, gradientGenerator
     );
   }
 
-  /**
-   * Conditionally apply patches to this item, by first copying it and
-   * then altering all affected properties
-   * @param data Data to patch with
-   * @param condition Boolean which has to evaluate to true in order to apply the patch
-   */
-  public ItemBuilder patch(ItemStackSection data, boolean condition) {
-    if (!condition)
-      return this;
-
-    // TODO: Move to components for displayname and lore
-
+  @Override
+  public ItemBuilder patch(ItemStackSection data) {
     ItemBuilder res = this.copy();
 
     if (data.getAmount() != null)
-      res.stack.setAmount(data.getAmount());
+      res.setConfigAmount(data.getAmount());
 
-    XMaterial m = data.getType() == null ? null : data.getType().asScalar(XMaterial.class);
-
-    if (m != null) {
-      m.setType(res.stack);
-      res.meta = res.stack.getItemMeta();
-    }
+    if (data.getType() != null)
+      res.setConfigType(data.getType());
 
     if (data.getName() != null)
       res.withName(data.getName());
 
-    if (data.getLore() != null)
-        res.setLore(data.getLore());
-
-    if (data.getFlags() != null) {
-      res.meta.getItemFlags().forEach(res.meta::removeItemFlags);
-      data.getFlags().asList(ItemFlag.class).forEach(res.meta::addItemFlags);
+    if (data.getLore() != null) {
+      if (data.isLoreOverride())
+        res.withOverridingLore(data.getLore());
+      else
+        res.withLore(data.getLore());
     }
 
-    Color c = data.getColor() == null ? null : data.getColor().asScalar(Color.class);
-    if (c != null)
-      res.withColor(() -> c, true);
+    if (data.getFlags() != null) {
+      if (data.isFlagsOverride())
+        res.withOverridingConfigFlags(data.getFlags());
+      else
+        res.withConfigFlags(data.getFlags());
+    }
+
+    if (data.getColor() != null)
+      res.withConfigColor(data.getColor());
 
     if (data.getEnchantments().length > 0) {
-      res.meta.getEnchants().forEach((e, i) -> res.meta.removeEnchant(e));
-      Arrays.stream(data.getEnchantments())
-        .forEach(e -> {
-          Enchantment ench = e.getEnchantment() == null ? null : e.getEnchantment().asScalar(Enchantment.class);
-          if (ench != null) {
-            Integer level = e.getLevel() == null ? null : e.getLevel().asScalar(Integer.class);
-            res.withEnchantment(ench, e.getLevel() == null ? 1 : level);
-          }
-        });
+      if (data.isEnchantmentsOverride())
+        res.withOverridingConfigEnchantments(data.getEnchantments());
+      else
+        res.withConfigEnchantments(data.getEnchantments());
     }
 
     if (data.getTextures() != null)
-      res.withTextures(() -> data.getTextures().asScalar(), true);
+      res.withConfigTextures(data.getTextures());
 
     if (data.getBaseEffect() != null)
-      res.withBaseEffect(() -> data.getBaseEffect().asData(null), true);
+      res.withConfigBaseEffect(data.getBaseEffect());
 
     if (data.getCustomEffects().length > 0) {
-      if (res.meta instanceof PotionMeta)
-        ((PotionMeta) this.meta).clearCustomEffects();
+      if (data.isCustomEffectsOverride())
+        res.withOverridingConfigCustomEffects(data.getCustomEffects());
+      else
+        res.withConfigCustomEffects(data.getCustomEffects());
+    }
 
-      res.withCustomEffects(() -> (
-        Arrays.stream(data.getCustomEffects()).map(e -> e.asEffect(null))
-          .filter(Optional::isPresent)
-          .map(Optional::get)
-          .collect(Collectors.toList())
-      ), true);
+    if (data.getBannerPatterns().length > 0) {
+      if (data.isBannerPatternsOverride())
+        res.withOverridingConfigPatterns(data.getBannerPatterns());
+      else
+        res.withConfigPatterns(data.getBannerPatterns());
     }
 
     return res;
+  }
+
+  //=========================================================================//
+  //                                Utilities                                //
+  //=========================================================================//
+
+  /**
+   * Applies a color value to the item-meta, based on it's type
+   * @param color Color value
+   */
+  private void applyColor(@Nullable Color color) {
+    if (this.meta instanceof LeatherArmorMeta)
+      ((LeatherArmorMeta) this.meta).setColor(color);
+
+    else if (this.meta instanceof PotionMeta)
+      ((PotionMeta) this.meta).setColor(color);
+
+    else if (this.meta instanceof MapMeta)
+      ((MapMeta) this.meta).setColor(color);
+  }
+
+  /**
+   * Applies a potion base effect
+   * @param effect Base effect
+   */
+  private void applyBaseEffect(PotionData effect) {
+    if (this.meta instanceof PotionMeta)
+      ((PotionMeta) this.meta).setBasePotionData(effect);
+  }
+
+  /**
+   * Applies a custom potion effect
+   * @param effect Custom effect
+   */
+  private void applyCustomEffect(@Nullable PotionEffect effect) {
+    if (effect == null)
+      return;
+
+    if (this.meta instanceof PotionMeta)
+      ((PotionMeta) this.meta).addCustomEffect(effect, true);
+  }
+
+  /**
+   * Applies a base64 texture value to a skull
+   * @param textures Texture value
+   */
+  private void applyTextures(String textures) {
+    GameProfile prof = new GameProfile(UUID.randomUUID(), null);
+    prof.getProperties().put("textures", new Property("textures", textures));
+    withHeadProfile(prof);
+  }
+
+  /**
+   * Applies a banner pattern to a banner
+   * @param pattern Banner pattern
+   */
+  private void applyPattern(@Nullable Pattern pattern) {
+    if (pattern == null)
+      return;
+
+    if (meta instanceof BannerMeta)
+      ((BannerMeta) meta).addPattern(pattern);
   }
 }

@@ -42,12 +42,13 @@ public class ItemBuilderFactory implements IItemBuilderFactory {
 
   @Override
   public ItemBuilder create(Material mat, int amount) {
-    return new ItemBuilder(mat, amount, componentApplicator, gradientGenerator);
+    return new ItemBuilder(new ItemStack(mat), amount, componentApplicator, gradientGenerator);
   }
 
   @Override
   public ItemBuilder create(GameProfile profile) {
-    return new ItemBuilder(profile, componentApplicator, gradientGenerator);
+    return new ItemBuilder(new ItemStack(Material.PLAYER_HEAD), 1, componentApplicator, gradientGenerator)
+      .withHeadProfile(profile);
   }
 
   @Override

@@ -43,7 +43,14 @@ public class ItemStackBaseEffectSection extends AConfigSection {
     boolean _upgraded = upgraded != null && upgraded;
     boolean _extended = extended != null && extended;
 
-    PotionType type = this.type == null ? null : this.type.withVariables(variables).asScalar(PotionType.class);
+    PotionType type = (
+      this.type == null ?
+        null :
+        this.type
+          .copy()
+          .withVariables(variables)
+          .asScalar(PotionType.class)
+    );
 
     // Potions cannot be both extended and upgraded at the same
     // time, focus the priority on the upgraded flag

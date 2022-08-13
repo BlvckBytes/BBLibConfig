@@ -40,8 +40,23 @@ public class ItemStackBannerPatternSection extends AConfigSection {
    * @param variables Variables to apply while evaluating values
    */
   public @Nullable Pattern asPattern(@Nullable Map<String, String> variables) {
-    PatternType pattern = this.pattern == null ? null : this.pattern.withVariables(variables).asScalar(PatternType.class);
-    DyeColor color = this.color == null ? null : this.color.withVariables(variables).asScalar(DyeColor.class);
+    PatternType pattern = (
+      this.pattern == null ?
+        null :
+        this.pattern
+          .copy()
+          .withVariables(variables)
+          .asScalar(PatternType.class)
+    );
+
+    DyeColor color = (
+      this.color == null ?
+        null :
+        this.color
+          .copy()
+          .withVariables(variables)
+          .asScalar(DyeColor.class)
+    );
 
     // Cannot construct a pattern with missing data
     if (pattern == null || color == null)

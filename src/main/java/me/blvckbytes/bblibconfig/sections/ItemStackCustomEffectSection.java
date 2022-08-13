@@ -8,7 +8,6 @@ import org.bukkit.potion.PotionEffectType;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
-import java.util.Optional;
 
 /*
   Author: BlvckBytes <blvckbytes@gmail.com>
@@ -44,17 +43,39 @@ public class ItemStackCustomEffectSection extends AConfigSection {
    * @return A PotionEffect on success, empty if crucial data was missing
    * @param variables Variables to apply while evaluating values
    */
-  public Optional<PotionEffect> asEffect(@Nullable Map<String, String> variables) {
+  public PotionEffect asEffect(@Nullable Map<String, String> variables) {
     // Cannot create an effect object without the effect itself
-    PotionEffectType type = this.effect == null ? null : this.effect.withVariables(variables).asScalar(PotionEffectType.class);
+    PotionEffectType type = (
+      this.effect == null ?
+        null :
+        this.effect
+          .copy()
+          .withVariables(variables)
+          .asScalar(PotionEffectType.class)
+    );
 
     if (type == null || duration == null)
-      return Optional.empty();
+      return null;
 
-    Integer amplifier = this.amplifier == null ? 0 : this.amplifier.withVariables(variables).asScalar(Integer.class);
-    Integer duration = this.duration.withVariables(variables).asScalar(Integer.class);
+    Integer amplifier = (
+      this.amplifier == null ?
+        0 :
+        this.amplifier
+          .copy()
+          .withVariables(variables)
+          .asScalar(Integer.class)
+    );
 
-    return Optional.of(new PotionEffect(
+    Integer duration = (
+      this.duration == null ?
+        null :
+        this.duration
+          .copy()
+          .withVariables(variables)
+          .asScalar(Integer.class)
+    );
+
+    return new PotionEffect(
       type, duration == null ? 20 * 60 : duration,
       // Default to no amplifier
       amplifier == null ? 0 : amplifier,
@@ -62,7 +83,7 @@ public class ItemStackCustomEffectSection extends AConfigSection {
       ambient != null && ambient,
       particles != null && particles,
       icon != null && icon
-    ));
+    );
   }
 
   /**

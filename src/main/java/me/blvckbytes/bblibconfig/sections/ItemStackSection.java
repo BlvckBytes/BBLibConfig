@@ -9,23 +9,20 @@ import me.blvckbytes.bblibconfig.AConfigSection;
 import me.blvckbytes.bblibconfig.ConfigValue;
 import me.blvckbytes.bblibconfig.IItemBuilderFactory;
 import me.blvckbytes.bblibconfig.ItemBuilder;
-import me.blvckbytes.bblibutil.Tuple;
-import org.bukkit.Color;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.*;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.LeatherArmorMeta;
+import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.inventory.meta.SkullMeta;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.reflect.Field;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /*
   Author: BlvckBytes <blvckbytes@gmail.com>
@@ -49,17 +46,22 @@ import java.util.stream.Collectors;
 @Getter
 public class ItemStackSection extends AConfigSection {
 
-  private @Nullable Integer amount;
+  private @Nullable ConfigValue amount;
   private @Nullable ConfigValue type;
   private @Nullable ConfigValue name;
   private @Nullable ConfigValue lore;
+  private boolean loreOverride;
   private @Nullable ConfigValue flags;
+  private boolean flagsOverride;
   private @Nullable ConfigValue color;
   private ItemStackEnchantmentSection[] enchantments;
+  private boolean enchantmentsOverride;
   private @Nullable ConfigValue textures;
   private @Nullable ItemStackBaseEffectSection baseEffect;
   private ItemStackCustomEffectSection[] customEffects;
+  private boolean customEffectsOverride;
   private ItemStackBannerPatternSection[] bannerPatterns;
+  private boolean bannerPatternsOverride;
 
   public ItemStackSection() {
     this.enchantments = new ItemStackEnchantmentSection[0];
@@ -69,48 +71,20 @@ public class ItemStackSection extends AConfigSection {
 
   /**
    * Create an item stack builder from the parameters of this section
-   * @param variables Variables to apply while evaluating values
    */
-  public ItemBuilder asItem(IItemBuilderFactory builderFactory, @Nullable Map<String, String> variables) {
-    XMaterial m = getType() == null ? null : getType().copy().withVariables(variables).asScalar(XMaterial.class);
-    Color c = getColor() == null ? null : getColor().copy().withVariables(variables).asScalar(Color.class);
-    ItemStack base = m == null ? null : m.parseItem();
-
-    return builderFactory.create(
-      base == null ? new ItemStack(Material.BARRIER) : base,
-      amount == null ? 1 : amount
-    )
-      .setPatterns(() -> (
-        Arrays.stream(bannerPatterns)
-          .map(p -> p.asPattern(variables))
-          .filter(Objects::nonNull)
-          .collect(Collectors.toList())
-      ), bannerPatterns != null)
-      .withName(() -> name.copy().withVariables(variables), name != null)
-      .withLore(() -> lore.copy().withVariables(variables), lore != null)
-      .withFlags(() -> flags.copy().withVariables(variables).asList(ItemFlag.class), flags != null)
-      .withEnchantments(() -> (
-        Arrays.stream(enchantments)
-          .map(es -> (
-            new Tuple<>(
-              es.getEnchantment() == null ?
-                null :
-                es.getEnchantment().copy().withVariables(variables).asScalar(Enchantment.class),
-              es.getLevel() == null ? 1 : es.getLevel().withVariables(variables).asScalar(Integer.class)
-            )
-          ))
-          .filter(t -> t.getA() != null)
-          .collect(Collectors.toList())
-      ), enchantments != null)
-      .withColor(() -> c, c != null)
-      .withTextures(() -> textures.copy().withVariables(variables).asScalar(), textures != null)
-      .withBaseEffect(() -> baseEffect.asData(variables), baseEffect != null)
-      .withCustomEffects(() -> (
-        Arrays.stream(customEffects)
-          .map(effect -> effect.asEffect(variables).orElse(null))
-          .filter(Objects::nonNull)
-          .collect(Collectors.toList())
-      ), customEffects != null);
+  public ItemBuilder asItem(IItemBuilderFactory builderFactory) {
+    return builderFactory.create(new ItemStack(Material.BARRIER), 1)
+      .setConfigType(type)
+      .setConfigAmount(amount)
+      .withConfigPatterns(bannerPatterns)
+      .withName(name)
+      .withLore(lore)
+      .withConfigFlags(flags)
+      .withConfigEnchantments(enchantments)
+      .withConfigColor(color)
+      .withConfigTextures(textures)
+      .withConfigBaseEffect(baseEffect)
+      .withConfigCustomEffects(customEffects);
   }
 
   /**
@@ -127,8 +101,11 @@ public class ItemStackSection extends AConfigSection {
     if (m != null && !m.isSimilar(item))
       return false;
 
-    if (amount != null && item.getAmount() != amount)
-      return false;
+    if (amount != null) {
+      Integer am = amount.asScalar(Integer.class);
+      if (am != null && am != item.getAmount())
+        return false;
+    }
 
     // Compare displayname
     if (!checkMeta(item, name, meta -> name.asScalar().equals(meta.getDisplayName())))
