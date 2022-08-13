@@ -22,6 +22,13 @@
             <version>0.1</version>
         </dependency>
 
+        <!-- Reflection library -->
+        <dependency>
+            <groupId>me.blvckbytes</groupId>
+            <artifactId>bblibreflect</artifactId>
+            <version>0.1</version>
+        </dependency>
+
         <!-- Various utilities library -->
         <dependency>
             <groupId>me.blvckbytes</groupId>
