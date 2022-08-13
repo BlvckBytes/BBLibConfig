@@ -123,7 +123,10 @@ public class ExpressionEvaluator implements IExpressionEvaluator {
    * @return Translated string
    */
   private String applyColors(String input) {
-    return ChatColor.translateAlternateColorCodes('&', input);
+    // Translate either on vanilla color code sequences, hex notations or on gradient notations
+    return input.replaceAll(
+      "&([\\da-zklmnor#]|<[#A-Za-z\\d :.]+>)", "§$1"
+    );
   }
 
   private @Nullable String resolveVariable(String expr, IExpressionDataProvider dataProvider) {
