@@ -35,9 +35,15 @@ import java.util.stream.Collectors;
 @AutoConstruct
 public class ComponentApplicator implements IComponentApplicator {
 
-  // TODO: Just set the plain value on < 1.16
+  private final Class<?>
+    CRAFT_META_ITEM_C,
+    I_CHAT_BASE_COMPONENT_C,
+    PACKET_O_TITLE,
+    CLB_TITLES_ANIMATION,
+    CLB_SET_TITLE,
+    CLB_SET_SUBTITLE,
+    ENUM_TITLE_ACTION;
 
-  private final Class<?> CRAFT_META_ITEM_C, I_CHAT_BASE_COMPONENT_C;
   private final MCReflect reflect;
   private final ILogger logger;
 
@@ -50,6 +56,11 @@ public class ComponentApplicator implements IComponentApplicator {
 
     CRAFT_META_ITEM_C = reflect.getClassBKT("inventory.CraftMetaItem");
     I_CHAT_BASE_COMPONENT_C = reflect.getReflClass(ReflClass.I_CHAT_BASE_COMPONENT);
+    PACKET_O_TITLE = reflect.getReflClass(ReflClass.PACKET_O_TITLE);
+    CLB_TITLES_ANIMATION = reflect.getReflClass(ReflClass.CLIENTBOUND_TITLES_ANIMATION);
+    CLB_SET_TITLE = reflect.getReflClass(ReflClass.CLIENTBOUND_TITLE_SET);
+    CLB_SET_SUBTITLE = reflect.getReflClass(ReflClass.CLIENTBOUND_SUBTITLE_SET);
+    ENUM_TITLE_ACTION = reflect.getReflClass(ReflClass.ENUM_TITLE_ACTION);
   }
 
   @Override
@@ -131,8 +142,31 @@ public class ComponentApplicator implements IComponentApplicator {
   @Override
   public void sendTitle(IComponent title, IComponent subtitle, int fadeIn, int duration, int fadeOut, Player p) {
     try {
-      // TODO: Implement
-      throw new UnsupportedOperationException("Not yet implemented");
+      Object setTimes, setTitle, setSubtitle;
+
+      if (PACKET_O_TITLE != null && ENUM_TITLE_ACTION != null) {
+        setTimes = reflect.createPacket(PACKET_O_TITLE);
+        setTitle = reflect.createPacket(PACKET_O_TITLE);
+        reflect.setFieldByType(setTitle, ENUM_TITLE_ACTION, ENUM_TITLE_ACTION.getEnumConstants()[0], 0);
+        setSubtitle = reflect.createPacket(PACKET_O_TITLE);
+        reflect.setFieldByType(setSubtitle, ENUM_TITLE_ACTION, ENUM_TITLE_ACTION.getEnumConstants()[1], 0);
+      }
+
+      else {
+        setTimes = reflect.createPacket(CLB_TITLES_ANIMATION);
+        setTitle = reflect.createPacket(CLB_SET_TITLE);
+        setSubtitle = reflect.createPacket(CLB_SET_SUBTITLE);
+      }
+
+      reflect.setFieldByType(setTimes, int.class, fadeIn, 0);
+      reflect.setFieldByType(setTimes, int.class, duration, 1);
+      reflect.setFieldByType(setTimes, int.class, fadeOut, 2);
+      reflect.setFieldByType(setTitle, I_CHAT_BASE_COMPONENT_C, reflect.chatComponentFromJson(title.toJson()), 0);
+      reflect.setFieldByType(setSubtitle, I_CHAT_BASE_COMPONENT_C, reflect.chatComponentFromJson(subtitle.toJson()), 0);
+
+      reflect.sendPacket(p, setTimes);
+      reflect.sendPacket(p, setTitle);
+      reflect.sendPacket(p, setSubtitle);
     } catch (Exception e) {
       logger.logError(e);
     }

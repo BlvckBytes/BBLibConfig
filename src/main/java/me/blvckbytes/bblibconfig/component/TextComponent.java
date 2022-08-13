@@ -44,7 +44,7 @@ public class TextComponent implements IComponent {
     vanillaColors = generateVanillaColors();
 
     // TODO: Properly decide on this value based on the server version
-    approximateRgb = true;
+    approximateRgb = false;
   }
 
   private final @Nullable String text;
