@@ -2,10 +2,14 @@ package me.blvckbytes.bblibconfig.component;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
+import me.blvckbytes.bblibconfig.GradientGenerator;
+import me.blvckbytes.bblibutil.Tuple;
 import org.jetbrains.annotations.Nullable;
 
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -182,27 +186,40 @@ public class TextComponent implements IComponent {
   /////////////////////////////////// Parsing //////////////////////////////////
 
   /**
+   * State content wrapper utility used while parsing
+   */
+  @AllArgsConstructor
+  private static class ChildContentState {
+    StringBuilder value;
+    String color;
+    List<Tuple<Color, Double>> gradient;
+    boolean[] fmts;
+
+    private static ChildContentState makeDefault() {
+      return new ChildContentState(
+        new StringBuilder(), null, null,
+        new boolean[TextFormatting.values.length]
+      );
+    }
+  }
+
+  /**
    * Parses a new TextComponent from a string of text by creating new
    * sub-components to express hex-color notations as required. Vanilla
    * notation will be kept in one component as much as possible.
    * @param text Text to parse
+   * @param gradientGenerator Gradient generator ref for generating gradients from gradient notation, optional
    * @return Parsed component
    */
-  public static TextComponent parseFromText(String text) {
+  public static TextComponent parseFromText(String text, @Nullable GradientGenerator gradientGenerator) {
 
     // Quick exit: Does not contain any hex colors
-    if (!text.contains("§#"))
+    if (!(text.contains("§#") || text.contains("§<")))
       return new TextComponent(text);
 
     // Head component, when splitting, a new sibling is appended to it
     TextComponent head = new TextComponent(null);
-
-    // Children content buffer
-    StringBuilder sb = new StringBuilder();
-    String sbColor = null;
-
-    // Currently effective formatting flags, updated while iterating through the text
-    boolean[] effectiveFormattings = new boolean[TextFormatting.values.length];
+    ChildContentState state = ChildContentState.makeDefault();
 
     // Iterate text char by char
     char[] chars = text.toCharArray();
@@ -211,7 +228,7 @@ public class TextComponent implements IComponent {
 
       // Not a special notation (or the last char), keep on collecting
       if (c != '§' || i == chars.length - 1) {
-        sb.append(c);
+        state.value.append(c);
         continue;
       }
 
@@ -246,32 +263,46 @@ public class TextComponent implements IComponent {
         if (hex == null)
           continue;
 
-        // Create a new component with whatever has been collected until now
-        head.siblings.add(new TextComponent(sb.toString(), sbColor, effectiveFormattings));
-
-        // Reset the child content collector
-        Arrays.fill(effectiveFormattings, false);
-        sbColor = hex.toString();
-        sb.setLength(0);
+        pushAndReset(state, head, gradientGenerator, true);
+        state.color = hex.toString();
 
         // Skip #RRGGBB
         i += 7;
         continue;
       }
 
+      // Could be a gradient notation
+      if (n == '<' && gradientGenerator != null) {
+        // Find the next closing bracket
+        int closeInd = text.indexOf('>', i + 1);
+
+        // Bracket available
+        if (closeInd > 0) {
+          // Grab the possible notation, including brackets, and try to parse it
+          List<Tuple<Color, Double>> gradient = gradientGenerator.parseGradientNotation(
+            text.substring(i + 1, closeInd + 1)
+          ).orElse(null);
+
+          // Was a gradient notation, push, store gradient and jump ahead
+          if (gradient != null) {
+            pushAndReset(state, head, gradientGenerator, true);
+            state.gradient = gradient;
+            i = closeInd;
+            continue;
+          }
+        }
+      }
+
       TextFormatting fmt = TextFormatting.getByChar(n);
 
       // Check if it's a text formatting sequence while caching a color
-      if (fmt != null && sbColor != null) {
+      if (fmt != null && (state.color != null || state.gradient != null)) {
 
         // Push with current formatting and leave color in buffer
-        if (sb.length() > 0) {
-          head.siblings.add(new TextComponent(sb.toString(), sbColor, effectiveFormattings));
-          sb.setLength(0);
-        }
+        pushAndReset(state, head, gradientGenerator, false);
 
         // Update formattings
-        effectiveFormattings[fmt.ordinal()] = true;
+        state.fmts[fmt.ordinal()] = true;
 
         // Skip this formatting character within the message
         i++;
@@ -282,23 +313,55 @@ public class TextComponent implements IComponent {
         // Vanilla color change occurred
         ((n >= '0' && n <= '9') || (n >= 'a' && n <= 'f') || n == 'r') &&
         // And there is a color stashed to be applied on sb's content
-        sbColor != null
-      ) {
-        // Push content with color and reset color as well as formattings
-        head.siblings.add(new TextComponent(sb.toString(), sbColor, effectiveFormattings));
-        Arrays.fill(effectiveFormattings, false);
-        sbColor = null;
-        sb.setLength(0);
-      }
+        (state.color != null || state.gradient != null)
+      )
+        pushAndReset(state, head, gradientGenerator, true);
 
       // Leave special sequence as is
-      sb.append(c);
+      state.value.append(c);
     }
 
     // Add remainder
-    if (sb.length() > 0)
-      head.siblings.add(new TextComponent(sb.toString(), sbColor, effectiveFormattings));
+    if (state.value.length() > 0)
+      pushAndReset(state, head, gradientGenerator, false);
 
     return head;
+  }
+
+  /**
+   * Push a new sibling component to the head using the current value and properties and
+   * then reset the value builder as well as the state's properties, if requested
+   * @param state Child content state wrapper
+   * @param head Head component ref
+   * @param gradientGenerator Gradient generator ref for generating gradients from gradient notation, optional
+   * @param resetProperties Whether to reset all properties as well
+   */
+  private static void pushAndReset(ChildContentState state, TextComponent head, @Nullable GradientGenerator gradientGenerator, boolean resetProperties) {
+
+    // Don't push empty components
+    if (state.value.length() > 0) {
+      // Add a gradient component if a gradient is available
+      if (state.gradient != null && gradientGenerator != null) {
+        TextComponent gradientComp = gradientGenerator.gradientize(state.value.toString(), state.gradient);
+
+        // Also apply formatting flags
+        System.arraycopy(state.fmts, 0, gradientComp.formatting, 0, state.fmts.length);
+
+        head.siblings.add(gradientComp);
+      }
+
+      // Add a colored component
+      else
+        head.siblings.add(new TextComponent(state.value.toString(), state.color, state.fmts));
+
+      state.value.setLength(0);
+    }
+
+    // Reset the child content state
+    if (resetProperties) {
+      Arrays.fill(state.fmts, false);
+      state.color = null;
+      state.gradient = null;
+    }
   }
 }
