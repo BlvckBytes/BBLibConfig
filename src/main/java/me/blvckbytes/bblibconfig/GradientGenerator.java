@@ -2,7 +2,6 @@ package me.blvckbytes.bblibconfig;
 
 import me.blvckbytes.bblibconfig.component.TextComponent;
 import me.blvckbytes.bblibdi.AutoConstruct;
-import me.blvckbytes.bblibutil.Tuple;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -41,7 +40,7 @@ public class GradientGenerator {
    */
   public TextComponent gradientize(
     String text,
-    List<Tuple<Color, Double>> colors
+    List<GradientPoint> colors
   ) {
     TextComponent res = new TextComponent("");
 
@@ -70,45 +69,47 @@ public class GradientGenerator {
    * @param percentage Percentage to pick the color at
    * @return Picked color
    */
-  public Color getGradientPoint(List<Tuple<Color, Double>> colors, double percentage) {
+  public Color getGradientPoint(List<GradientPoint> colors, double percentage) {
     // No colors present, print all white
     if (colors.size() == 0)
       return Color.WHITE;
 
     // Only one color present
     if (colors.size() == 1)
-      return colors.get(0).getA();
+      return colors.get(0).getColor();
 
     // Quick exit: If the first color has a higher value than 0,
     // the first n percent are that color statically.
-    Tuple<Color, Double> first = colors.get(0);
-    if (percentage <= first.getB())
-      return first.getA();
+    GradientPoint first = colors.get(0);
+    if (percentage <= first.getOffset())
+      return first.getColor();
 
-    // Quick exit: If the last color has a higher value than 1,
-    // the first n percent are that color statically.
-    Tuple<Color, Double> last = colors.get(colors.size() - 1);
-    if (percentage >= last.getB())
-      return last.getA();
+    // Quick exit: If the last color has a lower value than 1,
+    // the last (1 - n) percent are that color statically.
+    GradientPoint last = colors.get(colors.size() - 1);
+    if (percentage >= last.getOffset())
+      return last.getColor();
 
     // Find the two nearest colors around the current percentage point which
     // will make up the smaller in-between-gradient the caller is interested in
 
     // Start out assuming that A will be the first and B the last color
-    Tuple<Color, Double> a = first, b = last;
+    GradientPoint a = first, b = last;
 
     // Only iterate from 1 until n-1, as first and last are already active
     for (int i = 1; i < colors.size() - 1; i++) {
-      Tuple<Color, Double> color = colors.get(i);
+      GradientPoint color = colors.get(i);
 
       // Set A if the color is below the percentage but higher
       // up than the previous A color
-      if (color.getB() < percentage && color.getB() > a.getB())
+      if (color.getOffset() < percentage && color.getOffset() > a.getOffset())
         a = color;
 
       // Set B if the color is above the percentage but lower
       // down than the previous B color
-      if (color.getB() > percentage && color.getB() < b.getB())
+      // It is important to also allow an exact percentage match here, to not
+      // make hitting colors impossible when at their exact percentage
+      if (color.getOffset() >= percentage && color.getOffset() < b.getOffset())
         b = color;
     }
 
@@ -116,12 +117,12 @@ public class GradientGenerator {
     // How far into the sub-gradient is that point, from 0 to 1,
     // which is the ratio from the length travelled on the whole gradient
     // to get from A to percentage, divided by the span of A and B.
-    percentage = (percentage - a.getB()) / (b.getB() - a.getB());
+    percentage = (percentage - a.getOffset()) / (b.getOffset() - a.getOffset());
 
     // Linearly interpolate
-    double resultRed   = a.getA().getRed()   + percentage * (b.getA().getRed()   - a.getA().getRed());
-    double resultGreen = a.getA().getGreen() + percentage * (b.getA().getGreen() - a.getA().getGreen());
-    double resultBlue  = a.getA().getBlue()  + percentage * (b.getA().getBlue()  - a.getA().getBlue());
+    double resultRed   = a.getColor().getRed()   + percentage * (b.getColor().getRed()   - a.getColor().getRed());
+    double resultGreen = a.getColor().getGreen() + percentage * (b.getColor().getGreen() - a.getColor().getGreen());
+    double resultBlue  = a.getColor().getBlue()  + percentage * (b.getColor().getBlue()  - a.getColor().getBlue());
 
     // Floor to the next nearest integer when converting back into a color
     return new Color(
@@ -138,12 +139,12 @@ public class GradientGenerator {
    *                 separated by spaces), example: {@code <#FF0000:0 #00FF00:.5 #0000FF:1>}
    * @return Parsed notation on success, empty if the notation was malformed
    */
-  public Optional<List<Tuple<Color, Double>>> parseGradientNotation(String notation) {
+  public Optional<List<GradientPoint>> parseGradientNotation(String notation) {
     // Not enclosed by angle brackets
     if (!(notation.startsWith("<") && notation.endsWith(">")))
       return Optional.empty();
 
-    List<Tuple<Color, Double>> res = new ArrayList<>();
+    List<GradientPoint> res = new ArrayList<>();
 
     // Split on space to get individual color notations
     String[] colors = notation.substring(1, notation.length() - 1).split(" ");
@@ -189,7 +190,7 @@ public class GradientGenerator {
         return Optional.empty();
 
       // Add color point to the list
-      res.add(new Tuple<>(c, percentage));
+      res.add(new GradientPoint(c, percentage));
     }
 
     // Don't accept empty lists
@@ -197,7 +198,7 @@ public class GradientGenerator {
       return Optional.empty();
 
     // Return the list of colors sorted by their percentage
-    res.sort(Comparator.comparingDouble(Tuple::getB));
+    res.sort(Comparator.comparingDouble(GradientPoint::getOffset));
     return Optional.of(res);
   }
 }

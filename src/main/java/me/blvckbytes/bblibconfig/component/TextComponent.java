@@ -5,7 +5,7 @@ import com.google.gson.JsonObject;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import me.blvckbytes.bblibconfig.GradientGenerator;
-import me.blvckbytes.bblibutil.Tuple;
+import me.blvckbytes.bblibconfig.GradientPoint;
 import org.bukkit.ChatColor;
 import org.jetbrains.annotations.Nullable;
 
@@ -220,7 +220,7 @@ public class TextComponent implements IComponent {
   private static class ChildContentState {
     StringBuilder value;
     String color;
-    List<Tuple<Color, Double>> gradient;
+    List<GradientPoint> gradient;
     boolean[] fmts;
 
     private static ChildContentState makeDefault() {
@@ -307,7 +307,7 @@ public class TextComponent implements IComponent {
         // Bracket available
         if (closeInd > 0) {
           // Grab the possible notation, including brackets, and try to parse it
-          List<Tuple<Color, Double>> gradient = gradientGenerator.parseGradientNotation(
+          List<GradientPoint> gradient = gradientGenerator.parseGradientNotation(
             text.substring(i + 1, closeInd + 1)
           ).orElse(null);
 
