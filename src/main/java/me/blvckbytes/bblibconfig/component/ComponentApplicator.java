@@ -1,15 +1,20 @@
 package me.blvckbytes.bblibconfig.component;
 
-import me.blvckbytes.bblibreflect.ICustomizableViewer;
+import com.google.gson.JsonElement;
 import me.blvckbytes.bblibdi.AutoConstruct;
 import me.blvckbytes.bblibdi.AutoInject;
-import me.blvckbytes.bblibreflect.MCReflect;
-import me.blvckbytes.bblibreflect.ReflClass;
+import me.blvckbytes.bblibreflect.AReflectedAccessor;
+import me.blvckbytes.bblibreflect.ICustomizableViewer;
+import me.blvckbytes.bblibreflect.IReflectionHelper;
+import me.blvckbytes.bblibreflect.RClass;
+import me.blvckbytes.bblibreflect.communicator.ChatCommunicator;
+import me.blvckbytes.bblibreflect.communicator.parameter.ChatMessageParameter;
 import me.blvckbytes.bblibutil.logger.ILogger;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -33,34 +38,85 @@ import java.util.stream.Collectors;
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 @AutoConstruct
-public class ComponentApplicator implements IComponentApplicator {
+public class ComponentApplicator extends AReflectedAccessor implements IComponentApplicator {
 
-  private final Class<?>
-    CRAFT_META_ITEM_C,
-    I_CHAT_BASE_COMPONENT_C,
-    PACKET_O_TITLE,
-    CLB_TITLES_ANIMATION,
-    CLB_SET_TITLE,
-    CLB_SET_SUBTITLE,
-    ENUM_TITLE_ACTION;
+  private final Class<?> C_PO_TITLE, C_CLB_TITLES_ANIMATION, C_CLB_TITLE, C_CLB_SUBTITLE, C_ENUM_TITLE_ACTION;
 
-  private final MCReflect reflect;
-  private final ILogger logger;
+  private final Field F_CLB_TITLE__BASE_COMPONENT, F_CLB_SUBTITLE__BASE_COMPONENT,
+    F_CLB_TITLES_ANIMATION__FADE_IN, F_CLB_TITLES_ANIMATION__STAY, F_CLB_TITLES_ANIMATION__FADE_OUT,
+    F_PO__BASE_COMPONENT, F_PO__ENUM_TITLE_ACTION, F_PO__FADE_IN, F_PO__STAY, F_PO__FADE_OUT,
+    F_CRAFT_META_ITEM__NAME_BASE_COMPONENT, F_CRAFT_META_ITEM__NAME_STRING,
+    F_CRAFT_META_ITEM__LORE_STRING_LIST;
+
+  private final Method M_CHAT_SERIALIZER__FROM_JSON;
+
+  private final boolean isNewerTitles;
+
+  private final ChatCommunicator chatCommunicator;
 
   public ComponentApplicator(
-    @AutoInject MCReflect reflect,
-    @AutoInject ILogger logger
+    @AutoInject IReflectionHelper helper,
+    @AutoInject ILogger logger,
+    @AutoInject ChatCommunicator chatCommunicator
   ) throws Exception {
-    this.reflect = reflect;
-    this.logger = logger;
+    super(logger, helper);
 
-    CRAFT_META_ITEM_C = reflect.getClassBKT("inventory.CraftMetaItem");
-    I_CHAT_BASE_COMPONENT_C = reflect.getReflClass(ReflClass.I_CHAT_BASE_COMPONENT);
-    PACKET_O_TITLE = reflect.getReflClass(ReflClass.PACKET_O_TITLE);
-    CLB_TITLES_ANIMATION = reflect.getReflClass(ReflClass.CLIENTBOUND_TITLES_ANIMATION);
-    CLB_SET_TITLE = reflect.getReflClass(ReflClass.CLIENTBOUND_TITLE_SET);
-    CLB_SET_SUBTITLE = reflect.getReflClass(ReflClass.CLIENTBOUND_SUBTITLE_SET);
-    ENUM_TITLE_ACTION = reflect.getReflClass(ReflClass.ENUM_TITLE_ACTION);
+    this.chatCommunicator = chatCommunicator;
+
+    Class<?> C_CHAT_SERIALIZER   = requireClass(RClass.CHAT_SERIALIZER);
+    Class<?> C_CRAFT_META_ITEM = requireClass(RClass.CRAFT_META_ITEM);
+    Class<?> C_BASE_COMPONENT  = requireClass(RClass.I_CHAT_BASE_COMPONENT);
+
+    C_PO_TITLE = optionalClass(RClass.PACKET_O_TITLE);
+    C_ENUM_TITLE_ACTION = optionalClass(RClass.ENUM_TITLE_ACTION);
+    C_CLB_TITLES_ANIMATION = optionalClass(RClass.CLIENTBOUND_TITLES_ANIMATION);
+    C_CLB_TITLE = optionalClass(RClass.CLIENTBOUND_TITLE_SET);
+    C_CLB_SUBTITLE = optionalClass(RClass.CLIENTBOUND_SUBTITLE_SET);
+
+    M_CHAT_SERIALIZER__FROM_JSON = requireArgsMethod(C_CHAT_SERIALIZER, new Class[] { JsonElement.class }, C_BASE_COMPONENT, false);
+
+    isNewerTitles = C_CLB_TITLE != null && C_CLB_SUBTITLE != null && C_CLB_TITLES_ANIMATION != null;
+
+    F_CRAFT_META_ITEM__NAME_BASE_COMPONENT = optionalScalarField(C_CRAFT_META_ITEM, C_BASE_COMPONENT, 0, false, false, null);
+    F_CRAFT_META_ITEM__NAME_STRING = optionalScalarField(C_CRAFT_META_ITEM, String.class, 0, false, false, null);
+
+    if (F_CRAFT_META_ITEM__NAME_BASE_COMPONENT == null && F_CRAFT_META_ITEM__NAME_STRING == null)
+      throw new IllegalStateException("Couldn't find neither base component nor string lore field");
+
+    F_CRAFT_META_ITEM__LORE_STRING_LIST = requireCollectionField(C_CRAFT_META_ITEM, List.class, String.class, 0, false, false, null);
+
+    // PacketPlayOut (older)
+    if (C_PO_TITLE != null) {
+      F_PO__BASE_COMPONENT    = requireScalarField(C_PO_TITLE, C_BASE_COMPONENT, 0, false, false, null);
+      F_PO__ENUM_TITLE_ACTION = requireScalarField(C_PO_TITLE, C_ENUM_TITLE_ACTION, 0, false, false, null);
+      F_PO__FADE_IN           = requireScalarField(C_PO_TITLE, int.class, 0, false, false, null);
+      F_PO__STAY              = requireScalarField(C_PO_TITLE, int.class, 1, false, false, null);
+      F_PO__FADE_OUT          = requireScalarField(C_PO_TITLE, int.class, 2, false, false, null);
+
+      F_CLB_TITLE__BASE_COMPONENT = null;
+      F_CLB_SUBTITLE__BASE_COMPONENT = null;
+      F_CLB_TITLES_ANIMATION__FADE_IN = null;
+      F_CLB_TITLES_ANIMATION__STAY = null;
+      F_CLB_TITLES_ANIMATION__FADE_OUT = null;
+    }
+
+    // Clientbound packets (newer)
+    else if (isNewerTitles) {
+      F_CLB_TITLE__BASE_COMPONENT = requireScalarField(C_CLB_TITLE, C_BASE_COMPONENT, 0, false, false, null);
+      F_CLB_SUBTITLE__BASE_COMPONENT = requireScalarField(C_CLB_SUBTITLE, C_BASE_COMPONENT, 0, false, false, null);
+      F_CLB_TITLES_ANIMATION__FADE_IN = requireScalarField(C_CLB_TITLES_ANIMATION, int.class, 0, false, false, null);
+      F_CLB_TITLES_ANIMATION__STAY = requireScalarField(C_CLB_TITLES_ANIMATION, int.class, 1, false, false, null);
+      F_CLB_TITLES_ANIMATION__FADE_OUT = requireScalarField(C_CLB_TITLES_ANIMATION, int.class, 2, false, false, null);
+
+      F_PO__BASE_COMPONENT = null;
+      F_PO__ENUM_TITLE_ACTION = null;
+      F_PO__FADE_IN = null;
+      F_PO__STAY = null;
+      F_PO__FADE_OUT = null;
+    }
+
+    else
+      throw new IllegalStateException("Couldn't find neither newer nor older title packets.");
   }
 
   @Override
@@ -72,25 +128,11 @@ public class ComponentApplicator implements IComponentApplicator {
       return;
 
     try {
-      boolean isJson;
-      Field f;
+      if (F_CRAFT_META_ITEM__NAME_STRING != null)
+        F_CRAFT_META_ITEM__NAME_STRING.set(meta, displayName.toJson(approximateColors).toString());
 
-      // Figure out whether there's still a IChatBaseComponent, or already a JSON String
-      try {
-        f = reflect.findFieldByType(CRAFT_META_ITEM_C, String.class, 0);
-        isJson = true;
-      } catch (Exception e) {
-        f = reflect.findFieldByType(CRAFT_META_ITEM_C, I_CHAT_BASE_COMPONENT_C, 0);
-        isJson = false;
-      }
-
-      // Overwrite the displayname string or base component
-      f.set(
-        meta,
-        isJson ?
-          displayName.toJson(approximateColors).toString() :
-          reflect.chatComponentFromJson(displayName.toJson(approximateColors))
-      );
+      if (F_CRAFT_META_ITEM__NAME_BASE_COMPONENT != null)
+        F_CRAFT_META_ITEM__NAME_BASE_COMPONENT.set(meta, M_CHAT_SERIALIZER__FROM_JSON.invoke(null, displayName.toJson(approximateColors)));
 
       item.setItemMeta(meta);
     } catch (Exception e) {
@@ -113,7 +155,7 @@ public class ComponentApplicator implements IComponentApplicator {
         .collect(Collectors.toList());
 
       // Overwrite the list ref
-      reflect.findGenericFieldByType(CRAFT_META_ITEM_C, List.class, String.class, 0).set(meta, lore);
+      F_CRAFT_META_ITEM__LORE_STRING_LIST.set(meta, lore);
 
       item.setItemMeta(meta);
     } catch (Exception e) {
@@ -124,7 +166,10 @@ public class ComponentApplicator implements IComponentApplicator {
   @Override
   public void sendChat(IComponent message, ICustomizableViewer viewer) {
     try {
-      reflect.sendSerialized(viewer, message.toJson(false), 0);
+      chatCommunicator.sendParameterized(
+        viewer,
+        new ChatMessageParameter(message.toJson(viewer.cannotRenderHexColors()), true)
+      );
     } catch (Exception e) {
       logger.logError(e);
     }
@@ -133,36 +178,50 @@ public class ComponentApplicator implements IComponentApplicator {
   @Override
   public void sendActionBar(IComponent text, ICustomizableViewer viewer) {
     try {
-      reflect.sendSerialized(viewer, text.toJson(false), 2);
+      chatCommunicator.sendParameterized(
+        viewer,
+        new ChatMessageParameter(text.toJson(viewer.cannotRenderHexColors()), false)
+      );
     } catch (Exception e) {
       logger.logError(e);
     }
   }
 
   @Override
+  @SuppressWarnings("unchecked")
   public void sendTitle(IComponent title, IComponent subtitle, int fadeIn, int duration, int fadeOut, ICustomizableViewer viewer) {
     try {
-      Object setTimes, setTitle, setSubtitle;
+      // Older version, create three different instances of the same packet
+      if (!isNewerTitles) {
+        Object setTimes = helper.createEmptyPacket(C_PO_TITLE), setTitle = helper.createEmptyPacket(C_PO_TITLE), setSubtitle = helper.createEmptyPacket(C_PO_TITLE);
 
-      if (PACKET_O_TITLE != null && ENUM_TITLE_ACTION != null) {
-        setTimes = reflect.createPacket(PACKET_O_TITLE);
-        setTitle = reflect.createPacket(PACKET_O_TITLE);
-        reflect.setFieldByType(setTitle, ENUM_TITLE_ACTION, ENUM_TITLE_ACTION.getEnumConstants()[0], 0);
-        setSubtitle = reflect.createPacket(PACKET_O_TITLE);
-        reflect.setFieldByType(setSubtitle, ENUM_TITLE_ACTION, ENUM_TITLE_ACTION.getEnumConstants()[1], 0);
+        // 0 TITLE, 1 SUBTITLE, 2 ACTIONBAR, 3 TIMES, 4 CLEAR, 5 RESET
+        Enum<?>[] titleActions = ((Class<? extends Enum<?>>) C_ENUM_TITLE_ACTION).getEnumConstants();
+
+        F_PO__ENUM_TITLE_ACTION.set(setTimes, titleActions[3]);
+        F_PO__FADE_IN.set(setTimes, fadeIn);
+        F_PO__STAY.set(setTimes, duration);
+        F_PO__FADE_OUT.set(setTimes, fadeOut);
+
+        F_PO__ENUM_TITLE_ACTION.set(setTitle, titleActions[0]);
+        F_PO__BASE_COMPONENT.set(setTitle, M_CHAT_SERIALIZER__FROM_JSON.invoke(null, title.toJson(viewer.cannotRenderHexColors())));
+
+        F_PO__ENUM_TITLE_ACTION.set(setTimes, titleActions[1]);
+        F_PO__BASE_COMPONENT.set(setSubtitle, M_CHAT_SERIALIZER__FROM_JSON.invoke(null, subtitle.toJson(viewer.cannotRenderHexColors())));
+
+        viewer.sendPackets(setTimes, setTimes, setSubtitle);
+        return;
       }
 
-      else {
-        setTimes = reflect.createPacket(CLB_TITLES_ANIMATION);
-        setTitle = reflect.createPacket(CLB_SET_TITLE);
-        setSubtitle = reflect.createPacket(CLB_SET_SUBTITLE);
-      }
+      Object setTimes = helper.createEmptyPacket(C_CLB_TITLES_ANIMATION), setTitle = helper.createEmptyPacket(C_CLB_TITLE), setSubtitle = helper.createEmptyPacket(C_CLB_SUBTITLE);
 
-      reflect.setFieldByType(setTimes, int.class, fadeIn, 0);
-      reflect.setFieldByType(setTimes, int.class, duration, 1);
-      reflect.setFieldByType(setTimes, int.class, fadeOut, 2);
-      reflect.setFieldByType(setTitle, I_CHAT_BASE_COMPONENT_C, reflect.chatComponentFromJson(title.toJson(false)), 0);
-      reflect.setFieldByType(setSubtitle, I_CHAT_BASE_COMPONENT_C, reflect.chatComponentFromJson(subtitle.toJson(false)), 0);
+      F_CLB_TITLES_ANIMATION__FADE_IN.set(setTimes, fadeIn);
+      F_CLB_TITLES_ANIMATION__STAY.set(setTimes, duration);
+      F_CLB_TITLES_ANIMATION__FADE_OUT.set(setTimes, fadeOut);
+
+      F_CLB_TITLE__BASE_COMPONENT.set(setTitle, M_CHAT_SERIALIZER__FROM_JSON.invoke(null, title.toJson(viewer.cannotRenderHexColors())));
+
+      F_CLB_SUBTITLE__BASE_COMPONENT.set(setSubtitle, M_CHAT_SERIALIZER__FROM_JSON.invoke(null, title.toJson(viewer.cannotRenderHexColors())));
 
       viewer.sendPackets(setTimes, setTimes, setSubtitle);
     } catch (Exception e) {
