@@ -8,15 +8,15 @@ import me.blvckbytes.bblibdi.AutoInject;
 import me.blvckbytes.bblibreflect.*;
 import me.blvckbytes.bblibreflect.communicator.ChatCommunicator;
 import me.blvckbytes.bblibreflect.communicator.parameter.ChatMessageParameter;
+import me.blvckbytes.bblibreflect.handle.AConstructorHandle;
+import me.blvckbytes.bblibreflect.handle.AFieldHandle;
+import me.blvckbytes.bblibreflect.handle.AMethodHandle;
 import me.blvckbytes.bblibutil.logger.ILogger;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.Nullable;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -45,15 +45,15 @@ public class ComponentApplicator extends AReflectedAccessor implements IComponen
   private final Class<?> C_PO_TITLE, C_CLB_TITLES_ANIMATION, C_CLB_TITLE, C_CLB_SUBTITLE,
     C_ENUM_TITLE_ACTION, C_PO_PLAYER_INFO, C_ENUM_PLAYER_INFO_ACTION;
 
-  private final Field F_CLB_TITLE__BASE_COMPONENT, F_CLB_SUBTITLE__BASE_COMPONENT,
+  private final AFieldHandle F_CLB_TITLE__BASE_COMPONENT, F_CLB_SUBTITLE__BASE_COMPONENT,
     F_CLB_TITLES_ANIMATION__FADE_IN, F_CLB_TITLES_ANIMATION__STAY, F_CLB_TITLES_ANIMATION__FADE_OUT,
     F_PO_TITLE__BASE_COMPONENT, F_PO_TITLE__ENUM_TITLE_ACTION, F_PO_TITLE__FADE_IN, F_PO_TITLE__STAY, F_PO_TITLE__FADE_OUT,
     F_CRAFT_META_ITEM__NAME_BASE_COMPONENT, F_CRAFT_META_ITEM__NAME_STRING,
     F_CRAFT_META_ITEM__LORE_STRING_LIST, F_PO_PLAYER_INFO__ENUM, F_PO_PLAYER_INFO__LIST;
 
-  private final Method M_CHAT_SERIALIZER__FROM_JSON, M_CRAFT_PLAYER__GET_PROFILE;
+  private final AMethodHandle M_CHAT_SERIALIZER__FROM_JSON, M_CRAFT_PLAYER__GET_PROFILE;
 
-  private final Constructor<?> CT_PLAYER_INFO_DATA;
+  private final AConstructorHandle CT_PLAYER_INFO_DATA;
 
   private final boolean isNewerTitles;
 
