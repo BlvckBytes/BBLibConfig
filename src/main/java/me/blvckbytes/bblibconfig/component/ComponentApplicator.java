@@ -14,6 +14,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.Nullable;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -42,7 +43,7 @@ import java.util.stream.Collectors;
 public class ComponentApplicator extends AReflectedAccessor implements IComponentApplicator {
 
   private final Class<?> C_PO_TITLE, C_CLB_TITLES_ANIMATION, C_CLB_TITLE, C_CLB_SUBTITLE,
-    C_ENUM_TITLE_ACTION, C_PO_PLAYER_INFO, C_ENUM_PLAYER_INFO_ACTION, C_PLAYER_INFO_DATA, C_ENUM_GAME_MODE, C_BASE_COMPONENT;
+    C_ENUM_TITLE_ACTION, C_PO_PLAYER_INFO, C_ENUM_PLAYER_INFO_ACTION;
 
   private final Field F_CLB_TITLE__BASE_COMPONENT, F_CLB_SUBTITLE__BASE_COMPONENT,
     F_CLB_TITLES_ANIMATION__FADE_IN, F_CLB_TITLES_ANIMATION__STAY, F_CLB_TITLES_ANIMATION__FADE_OUT,
@@ -51,6 +52,8 @@ public class ComponentApplicator extends AReflectedAccessor implements IComponen
     F_CRAFT_META_ITEM__LORE_STRING_LIST, F_PO_PLAYER_INFO__ENUM, F_PO_PLAYER_INFO__LIST;
 
   private final Method M_CHAT_SERIALIZER__FROM_JSON, M_CRAFT_PLAYER__GET_PROFILE;
+
+  private final Constructor<?> CT_PLAYER_INFO_DATA;
 
   private final boolean isNewerTitles;
 
@@ -68,15 +71,15 @@ public class ComponentApplicator extends AReflectedAccessor implements IComponen
     this.chatCommunicator = chatCommunicator;
     this.interceptor = interceptor;
 
-    Class<?> C_CHAT_SERIALIZER = requireClass(RClass.CHAT_SERIALIZER);
-    Class<?> C_CRAFT_PLAYER    = requireClass(RClass.CRAFT_PLAYER);
-    Class<?> C_CRAFT_META_ITEM = requireClass(RClass.CRAFT_META_ITEM);
+    Class<?> C_CHAT_SERIALIZER  = requireClass(RClass.CHAT_SERIALIZER);
+    Class<?> C_CRAFT_PLAYER     = requireClass(RClass.CRAFT_PLAYER);
+    Class<?> C_CRAFT_META_ITEM  = requireClass(RClass.CRAFT_META_ITEM);
+    Class<?> C_PLAYER_INFO_DATA = optionalClass(RClass.PLAYER_INFO_DATA);
+    Class<?> C_ENUM_GAME_MODE   = optionalClass(RClass.ENUM_GAME_MODE);
+    Class<?> C_BASE_COMPONENT   = requireClass(RClass.I_CHAT_BASE_COMPONENT);
 
-    C_BASE_COMPONENT          = requireClass(RClass.I_CHAT_BASE_COMPONENT);
     C_PO_TITLE                = optionalClass(RClass.PACKET_O_TITLE);
     C_PO_PLAYER_INFO          = optionalClass(RClass.PACKET_O_PLAYER_INFO);
-    C_PLAYER_INFO_DATA        = optionalClass(RClass.PLAYER_INFO_DATA);
-    C_ENUM_GAME_MODE          = optionalClass(RClass.ENUM_GAME_MODE);
     C_ENUM_PLAYER_INFO_ACTION = optionalClass(RClass.ENUM_PLAYER_INFO_ACTION);
     C_ENUM_TITLE_ACTION       = optionalClass(RClass.ENUM_TITLE_ACTION);
     C_CLB_TITLES_ANIMATION    = optionalClass(RClass.CLIENTBOUND_TITLES_ANIMATION);
@@ -131,6 +134,8 @@ public class ComponentApplicator extends AReflectedAccessor implements IComponen
 
     F_PO_PLAYER_INFO__ENUM = requireScalarField(C_PO_PLAYER_INFO, C_ENUM_PLAYER_INFO_ACTION, 0, false, false, null);
     F_PO_PLAYER_INFO__LIST = requireCollectionField(C_PO_PLAYER_INFO, List.class, C_PLAYER_INFO_DATA, 0, false, false, null);
+
+    CT_PLAYER_INFO_DATA = requireArgsConstructor(C_PLAYER_INFO_DATA, new Class[] { GameProfile.class, int.class, C_ENUM_GAME_MODE, C_BASE_COMPONENT });
   }
 
   @Override
@@ -273,12 +278,10 @@ public class ComponentApplicator extends AReflectedAccessor implements IComponen
       GameProfile profile = (GameProfile) M_CRAFT_PLAYER__GET_PROFILE.invoke(p);
 
       List<?> dataList = List.of(
-        C_PLAYER_INFO_DATA
-          .getConstructor(GameProfile.class, int.class, C_ENUM_GAME_MODE, C_BASE_COMPONENT)
-          .newInstance(
-            profile, p.getEntityId(), null,
-            M_CHAT_SERIALIZER__FROM_JSON.invoke(null, json)
-          )
+        CT_PLAYER_INFO_DATA.newInstance(
+          profile, p.getEntityId(), null,
+          M_CHAT_SERIALIZER__FROM_JSON.invoke(null, json)
+        )
       );
 
       F_PO_PLAYER_INFO__ENUM.set(info, updateEnum);
