@@ -3,13 +3,11 @@ package me.blvckbytes.bblibconfig.component;
 import com.google.gson.JsonElement;
 import me.blvckbytes.bblibdi.AutoConstruct;
 import me.blvckbytes.bblibdi.AutoInject;
-import me.blvckbytes.bblibreflect.AReflectedAccessor;
-import me.blvckbytes.bblibreflect.ICustomizableViewer;
-import me.blvckbytes.bblibreflect.IReflectionHelper;
-import me.blvckbytes.bblibreflect.RClass;
+import me.blvckbytes.bblibreflect.*;
 import me.blvckbytes.bblibreflect.communicator.ChatCommunicator;
 import me.blvckbytes.bblibreflect.communicator.parameter.ChatMessageParameter;
 import me.blvckbytes.bblibutil.logger.ILogger;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -53,15 +51,18 @@ public class ComponentApplicator extends AReflectedAccessor implements IComponen
   private final boolean isNewerTitles;
 
   private final ChatCommunicator chatCommunicator;
+  private final IPacketInterceptor interceptor;
 
   public ComponentApplicator(
     @AutoInject IReflectionHelper helper,
     @AutoInject ILogger logger,
-    @AutoInject ChatCommunicator chatCommunicator
+    @AutoInject ChatCommunicator chatCommunicator,
+    @AutoInject IPacketInterceptor interceptor
   ) throws Exception {
     super(logger, helper);
 
     this.chatCommunicator = chatCommunicator;
+    this.interceptor = interceptor;
 
     Class<?> C_CHAT_SERIALIZER   = requireClass(RClass.CHAT_SERIALIZER);
     Class<?> C_CRAFT_META_ITEM = requireClass(RClass.CRAFT_META_ITEM);
@@ -176,6 +177,11 @@ public class ComponentApplicator extends AReflectedAccessor implements IComponen
   }
 
   @Override
+  public void sendChat(IComponent message, Player p) {
+    sendChat(message, interceptor.getPlayerAsViewer(p));
+  }
+
+  @Override
   public void sendActionBar(IComponent text, ICustomizableViewer viewer) {
     try {
       chatCommunicator.sendParameterized(
@@ -185,6 +191,11 @@ public class ComponentApplicator extends AReflectedAccessor implements IComponen
     } catch (Exception e) {
       logger.logError(e);
     }
+  }
+
+  @Override
+  public void sendActionBar(IComponent text, Player p) {
+    sendActionBar(text, interceptor.getPlayerAsViewer(p));
   }
 
   @Override
@@ -227,5 +238,10 @@ public class ComponentApplicator extends AReflectedAccessor implements IComponen
     } catch (Exception e) {
       logger.logError(e);
     }
+  }
+
+  @Override
+  public void sendTitle(IComponent title, IComponent subtitle, int fadeIn, int duration, int fadeOut, Player p) {
+    sendTitle(title, subtitle, fadeIn, duration, fadeOut, interceptor.getPlayerAsViewer(p));
   }
 }
