@@ -3,6 +3,7 @@ package me.blvckbytes.bblibconfig.component;
 import me.blvckbytes.bblibreflect.ICustomizableViewer;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
@@ -101,4 +102,12 @@ public interface IComponentApplicator {
     int fadeIn, int duration, int fadeOut,
     Player p
   );
+
+  /**
+   * Update the playerlist name for a player
+   * @param name Name to display, null to reset
+   * @param p Target player
+   */
+  void updatePlayerlistName(@Nullable IComponent name, Player p);
+
 }
