@@ -8,9 +8,7 @@ import me.blvckbytes.bblibdi.AutoInject;
 import me.blvckbytes.bblibreflect.*;
 import me.blvckbytes.bblibreflect.communicator.ChatCommunicator;
 import me.blvckbytes.bblibreflect.communicator.parameter.ChatMessageParameter;
-import me.blvckbytes.bblibreflect.handle.AConstructorHandle;
-import me.blvckbytes.bblibreflect.handle.AFieldHandle;
-import me.blvckbytes.bblibreflect.handle.AMethodHandle;
+import me.blvckbytes.bblibreflect.handle.*;
 import me.blvckbytes.bblibutil.logger.ILogger;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -40,72 +38,75 @@ import java.util.stream.Collectors;
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 @AutoConstruct
-public class ComponentApplicator extends AReflectedAccessor implements IComponentApplicator {
+public class ComponentApplicator implements IComponentApplicator {
 
-  private final Class<?> C_PO_TITLE, C_CLB_TITLES_ANIMATION, C_CLB_TITLE, C_CLB_SUBTITLE,
+  private final ClassHandle C_PO_TITLE, C_CLB_TITLES_ANIMATION, C_CLB_TITLE, C_CLB_SUBTITLE,
     C_ENUM_TITLE_ACTION, C_PO_PLAYER_INFO, C_ENUM_PLAYER_INFO_ACTION;
 
-  private final AFieldHandle F_CLB_TITLE__BASE_COMPONENT, F_CLB_SUBTITLE__BASE_COMPONENT,
+  private final FieldHandle F_CLB_TITLE__BASE_COMPONENT, F_CLB_SUBTITLE__BASE_COMPONENT,
     F_CLB_TITLES_ANIMATION__FADE_IN, F_CLB_TITLES_ANIMATION__STAY, F_CLB_TITLES_ANIMATION__FADE_OUT,
     F_PO_TITLE__BASE_COMPONENT, F_PO_TITLE__ENUM_TITLE_ACTION, F_PO_TITLE__FADE_IN, F_PO_TITLE__STAY, F_PO_TITLE__FADE_OUT,
     F_CRAFT_META_ITEM__NAME_BASE_COMPONENT, F_CRAFT_META_ITEM__NAME_STRING,
     F_CRAFT_META_ITEM__LORE_STRING_LIST, F_PO_PLAYER_INFO__ENUM, F_PO_PLAYER_INFO__LIST;
 
-  private final AMethodHandle M_CHAT_SERIALIZER__FROM_JSON, M_CRAFT_PLAYER__GET_PROFILE;
+  private final MethodHandle M_CHAT_SERIALIZER__FROM_JSON, M_CRAFT_PLAYER__GET_PROFILE;
 
-  private final AConstructorHandle CT_PLAYER_INFO_DATA;
+  private final ConstructorHandle CT_PLAYER_INFO_DATA;
 
   private final boolean isNewerTitles;
 
   private final ChatCommunicator chatCommunicator;
   private final IPacketInterceptor interceptor;
+  private final ILogger logger;
+  private final IReflectionHelper reflection;
 
   public ComponentApplicator(
-    @AutoInject IReflectionHelper helper,
+    @AutoInject IReflectionHelper reflection,
     @AutoInject ILogger logger,
     @AutoInject ChatCommunicator chatCommunicator,
     @AutoInject IPacketInterceptor interceptor
   ) throws Exception {
-    super(logger, helper);
 
     this.chatCommunicator = chatCommunicator;
     this.interceptor = interceptor;
+    this.logger = logger;
+    this.reflection = reflection;
 
-    Class<?> C_CHAT_SERIALIZER  = requireClass(RClass.CHAT_SERIALIZER);
-    Class<?> C_CRAFT_PLAYER     = requireClass(RClass.CRAFT_PLAYER);
-    Class<?> C_CRAFT_META_ITEM  = requireClass(RClass.CRAFT_META_ITEM);
-    Class<?> C_PLAYER_INFO_DATA = optionalClass(RClass.PLAYER_INFO_DATA);
-    Class<?> C_ENUM_GAME_MODE   = optionalClass(RClass.ENUM_GAME_MODE);
-    Class<?> C_BASE_COMPONENT   = requireClass(RClass.I_CHAT_BASE_COMPONENT);
+    ClassHandle C_CHAT_SERIALIZER  = reflection.getClass(RClass.CHAT_SERIALIZER);
+    ClassHandle C_CRAFT_PLAYER     = reflection.getClass(RClass.CRAFT_PLAYER);
+    ClassHandle C_CRAFT_META_ITEM  = reflection.getClass(RClass.CRAFT_META_ITEM);
+    ClassHandle C_PLAYER_INFO_DATA = reflection.getClass(RClass.PLAYER_INFO_DATA);
+    ClassHandle C_ENUM_GAME_MODE   = reflection.getClass(RClass.ENUM_GAME_MODE);
+    ClassHandle C_BASE_COMPONENT   = reflection.getClass(RClass.I_CHAT_BASE_COMPONENT);
 
-    C_PO_TITLE                = optionalClass(RClass.PACKET_O_TITLE);
-    C_PO_PLAYER_INFO          = optionalClass(RClass.PACKET_O_PLAYER_INFO);
-    C_ENUM_PLAYER_INFO_ACTION = optionalClass(RClass.ENUM_PLAYER_INFO_ACTION);
-    C_ENUM_TITLE_ACTION       = optionalClass(RClass.ENUM_TITLE_ACTION);
-    C_CLB_TITLES_ANIMATION    = optionalClass(RClass.CLIENTBOUND_TITLES_ANIMATION);
-    C_CLB_TITLE               = optionalClass(RClass.CLIENTBOUND_TITLE_SET);
-    C_CLB_SUBTITLE            = optionalClass(RClass.CLIENTBOUND_SUBTITLE_SET);
+    C_PO_TITLE                = reflection.getClassOptional(RClass.PACKET_O_TITLE);
+    C_PO_PLAYER_INFO          = reflection.getClass(RClass.PACKET_O_PLAYER_INFO);
+    C_ENUM_PLAYER_INFO_ACTION = reflection.getClass(RClass.ENUM_PLAYER_INFO_ACTION);
+    C_ENUM_TITLE_ACTION       = reflection.getClassOptional(RClass.ENUM_TITLE_ACTION);
+    C_CLB_TITLES_ANIMATION    = reflection.getClassOptional(RClass.CLIENTBOUND_TITLES_ANIMATION);
+    C_CLB_TITLE               = reflection.getClassOptional(RClass.CLIENTBOUND_TITLE_SET);
+    C_CLB_SUBTITLE            = reflection.getClassOptional(RClass.CLIENTBOUND_SUBTITLE_SET);
 
-    M_CHAT_SERIALIZER__FROM_JSON = requireArgsMethod(C_CHAT_SERIALIZER, new Class[] { JsonElement.class }, C_BASE_COMPONENT, false);
-    M_CRAFT_PLAYER__GET_PROFILE  = requireNamedMethod(C_CRAFT_PLAYER, "getProfile", GameProfile.class, false);
+    M_CHAT_SERIALIZER__FROM_JSON = C_CHAT_SERIALIZER.locateMethod().withParameters(JsonElement.class).withReturnType(C_BASE_COMPONENT, false, Assignability.TYPE_TO_TARGET).withStatic(true).required();
+    M_CRAFT_PLAYER__GET_PROFILE  = C_CRAFT_PLAYER.locateMethod().withName("getProfile").withReturnType(GameProfile.class).required();
 
     isNewerTitles = C_CLB_TITLE != null && C_CLB_SUBTITLE != null && C_CLB_TITLES_ANIMATION != null;
 
-    F_CRAFT_META_ITEM__NAME_BASE_COMPONENT = optionalScalarField(C_CRAFT_META_ITEM, C_BASE_COMPONENT, 0, false, false, null);
-    F_CRAFT_META_ITEM__NAME_STRING = optionalScalarField(C_CRAFT_META_ITEM, String.class, 0, false, false, null);
+    F_CRAFT_META_ITEM__NAME_BASE_COMPONENT = C_CRAFT_META_ITEM.locateField().withType(C_BASE_COMPONENT).optional();
+    F_CRAFT_META_ITEM__NAME_STRING         = C_CRAFT_META_ITEM.locateField().withType(String.class).optional();
 
     if (F_CRAFT_META_ITEM__NAME_BASE_COMPONENT == null && F_CRAFT_META_ITEM__NAME_STRING == null)
       throw new IllegalStateException("Couldn't find neither base component nor string lore field");
 
-    F_CRAFT_META_ITEM__LORE_STRING_LIST = requireCollectionField(C_CRAFT_META_ITEM, List.class, String.class, 0, false, false, null);
+    F_CRAFT_META_ITEM__LORE_STRING_LIST = C_CRAFT_META_ITEM.locateField().withType(List.class).withGeneric(String.class).required();
 
     // PacketPlayOut (older)
     if (C_PO_TITLE != null) {
-      F_PO_TITLE__BASE_COMPONENT    = requireScalarField(C_PO_TITLE, C_BASE_COMPONENT, 0, false, false, null);
-      F_PO_TITLE__ENUM_TITLE_ACTION = requireScalarField(C_PO_TITLE, C_ENUM_TITLE_ACTION, 0, false, false, null);
-      F_PO_TITLE__FADE_IN           = requireScalarField(C_PO_TITLE, int.class, 0, false, false, null);
-      F_PO_TITLE__STAY              = requireScalarField(C_PO_TITLE, int.class, 1, false, false, null);
-      F_PO_TITLE__FADE_OUT          = requireScalarField(C_PO_TITLE, int.class, 2, false, false, null);
+      F_PO_TITLE__BASE_COMPONENT    = C_PO_TITLE.locateField().withType(C_BASE_COMPONENT).required();
+      F_PO_TITLE__ENUM_TITLE_ACTION = C_PO_TITLE.locateField().withType(C_ENUM_TITLE_ACTION).required();
+      F_PO_TITLE__FADE_IN           = C_PO_TITLE.locateField().withType(int.class).required();
+      F_PO_TITLE__STAY              = C_PO_TITLE.locateField().withType(int.class).withSkip(1).required();
+      F_PO_TITLE__FADE_OUT          = C_PO_TITLE.locateField().withType(int.class).withSkip(2).required();
 
       F_CLB_TITLE__BASE_COMPONENT = null;
       F_CLB_SUBTITLE__BASE_COMPONENT = null;
@@ -116,11 +117,11 @@ public class ComponentApplicator extends AReflectedAccessor implements IComponen
 
     // Clientbound packets (newer)
     else if (isNewerTitles) {
-      F_CLB_TITLE__BASE_COMPONENT = requireScalarField(C_CLB_TITLE, C_BASE_COMPONENT, 0, false, false, null);
-      F_CLB_SUBTITLE__BASE_COMPONENT = requireScalarField(C_CLB_SUBTITLE, C_BASE_COMPONENT, 0, false, false, null);
-      F_CLB_TITLES_ANIMATION__FADE_IN = requireScalarField(C_CLB_TITLES_ANIMATION, int.class, 0, false, false, null);
-      F_CLB_TITLES_ANIMATION__STAY = requireScalarField(C_CLB_TITLES_ANIMATION, int.class, 1, false, false, null);
-      F_CLB_TITLES_ANIMATION__FADE_OUT = requireScalarField(C_CLB_TITLES_ANIMATION, int.class, 2, false, false, null);
+      F_CLB_TITLE__BASE_COMPONENT      = C_CLB_TITLE.locateField().withType(C_BASE_COMPONENT).required();
+      F_CLB_SUBTITLE__BASE_COMPONENT   = C_CLB_SUBTITLE.locateField().withType(C_BASE_COMPONENT).required();
+      F_CLB_TITLES_ANIMATION__FADE_IN  = C_CLB_TITLES_ANIMATION.locateField().withType(int.class).required();
+      F_CLB_TITLES_ANIMATION__STAY     = C_CLB_TITLES_ANIMATION.locateField().withType(int.class).withSkip(1).required();
+      F_CLB_TITLES_ANIMATION__FADE_OUT = C_CLB_TITLES_ANIMATION.locateField().withType(int.class).withSkip(2).required();
 
       F_PO_TITLE__BASE_COMPONENT = null;
       F_PO_TITLE__ENUM_TITLE_ACTION = null;
@@ -132,10 +133,10 @@ public class ComponentApplicator extends AReflectedAccessor implements IComponen
     else
       throw new IllegalStateException("Couldn't find neither newer nor older title packets.");
 
-    F_PO_PLAYER_INFO__ENUM = requireScalarField(C_PO_PLAYER_INFO, C_ENUM_PLAYER_INFO_ACTION, 0, false, false, null);
-    F_PO_PLAYER_INFO__LIST = requireCollectionField(C_PO_PLAYER_INFO, List.class, C_PLAYER_INFO_DATA, 0, false, false, null);
+    F_PO_PLAYER_INFO__ENUM = C_PO_PLAYER_INFO.locateField().withType(C_ENUM_PLAYER_INFO_ACTION).required();
+    F_PO_PLAYER_INFO__LIST = C_PO_PLAYER_INFO.locateField().withType(List.class).withGeneric(C_PLAYER_INFO_DATA).required();
 
-    CT_PLAYER_INFO_DATA = requireArgsConstructor(C_PLAYER_INFO_DATA, new Class[] { GameProfile.class, int.class, C_ENUM_GAME_MODE, C_BASE_COMPONENT });
+    CT_PLAYER_INFO_DATA = C_PLAYER_INFO_DATA.locateConstructor().withParameters(GameProfile.class, int.class).withParameters(C_ENUM_GAME_MODE, C_BASE_COMPONENT).required();
   }
 
   @Override
@@ -222,10 +223,10 @@ public class ComponentApplicator extends AReflectedAccessor implements IComponen
     try {
       // Older version, create three different instances of the same packet
       if (!isNewerTitles) {
-        Object setTimes = helper.createEmptyPacket(C_PO_TITLE), setTitle = helper.createEmptyPacket(C_PO_TITLE), setSubtitle = helper.createEmptyPacket(C_PO_TITLE);
+        Object setTimes = reflection.createEmptyPacket(C_PO_TITLE), setTitle = reflection.createEmptyPacket(C_PO_TITLE), setSubtitle = reflection.createEmptyPacket(C_PO_TITLE);
 
         // 0 TITLE, 1 SUBTITLE, 2 ACTIONBAR, 3 TIMES, 4 CLEAR, 5 RESET
-        Enum<?>[] titleActions = ((Class<? extends Enum<?>>) C_ENUM_TITLE_ACTION).getEnumConstants();
+        Enum<?>[] titleActions = ((Class<? extends Enum<?>>) C_ENUM_TITLE_ACTION.get()).getEnumConstants();
 
         F_PO_TITLE__ENUM_TITLE_ACTION.set(setTimes, titleActions[3]);
         F_PO_TITLE__FADE_IN.set(setTimes, fadeIn);
@@ -242,7 +243,7 @@ public class ComponentApplicator extends AReflectedAccessor implements IComponen
         return;
       }
 
-      Object setTimes = helper.createEmptyPacket(C_CLB_TITLES_ANIMATION), setTitle = helper.createEmptyPacket(C_CLB_TITLE), setSubtitle = helper.createEmptyPacket(C_CLB_SUBTITLE);
+      Object setTimes = reflection.createEmptyPacket(C_CLB_TITLES_ANIMATION), setTitle = reflection.createEmptyPacket(C_CLB_TITLE), setSubtitle = reflection.createEmptyPacket(C_CLB_SUBTITLE);
 
       F_CLB_TITLES_ANIMATION__FADE_IN.set(setTimes, fadeIn);
       F_CLB_TITLES_ANIMATION__STAY.set(setTimes, duration);
@@ -269,12 +270,12 @@ public class ComponentApplicator extends AReflectedAccessor implements IComponen
     // TODO: Don't broadcast but rather scope per player to have proper individualized #cannotRenderHexColors
 
     try {
-      Object info = helper.createEmptyPacket(C_PO_PLAYER_INFO);
+      Object info = reflection.createEmptyPacket(C_PO_PLAYER_INFO);
       ICustomizableViewer viewer = interceptor.getPlayerAsViewer(p);
       JsonObject json = name == null ? null : name.toJson(viewer.cannotRenderHexColors());
 
       // 0: add player, 1: update gamemode, 2: update latency, 3: update display name, 4: remove player
-      Enum<?> updateEnum = ((Class<? extends Enum<?>>) C_ENUM_PLAYER_INFO_ACTION).getEnumConstants()[3];
+      Enum<?> updateEnum = ((Class<? extends Enum<?>>) C_ENUM_PLAYER_INFO_ACTION.get()).getEnumConstants()[3];
       GameProfile profile = (GameProfile) M_CRAFT_PLAYER__GET_PROFILE.invoke(p);
 
       List<?> dataList = List.of(
