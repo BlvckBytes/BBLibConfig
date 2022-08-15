@@ -107,7 +107,9 @@ public interface IComponentApplicator {
    * Update the playerlist name for a player
    * @param name Name to display, null to reset
    * @param p Target player
+   * @param audience Players who the change applies to, if null the change
+   *                 only applies to the target player themselves
    */
-  void updatePlayerlistName(@Nullable IComponent name, Player p);
+  void updatePlayerlistName(@Nullable IComponent name, Player p, @Nullable List<Player> audience);
 
 }

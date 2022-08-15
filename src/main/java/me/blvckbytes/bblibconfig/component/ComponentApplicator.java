@@ -222,9 +222,13 @@ public class ComponentApplicator implements IComponentApplicator {
   @Override
   public void sendTitle(IComponent title, IComponent subtitle, int fadeIn, int duration, int fadeOut, ICustomizableViewer viewer) {
     try {
+      Object setTimes, setTitle, setSubtitle;
+
       // Older version, create three different instances of the same packet
       if (!isNewerTitles) {
-        Object setTimes = reflection.createEmptyPacket(C_PO_TITLE), setTitle = reflection.createEmptyPacket(C_PO_TITLE), setSubtitle = reflection.createEmptyPacket(C_PO_TITLE);
+        setTimes    = reflection.createEmptyPacket(C_PO_TITLE);
+        setTitle    = reflection.createEmptyPacket(C_PO_TITLE);
+        setSubtitle = reflection.createEmptyPacket(C_PO_TITLE);
 
         // 0 TITLE, 1 SUBTITLE, 2 ACTIONBAR, 3 TIMES, 4 CLEAR, 5 RESET
 
@@ -238,22 +242,25 @@ public class ComponentApplicator implements IComponentApplicator {
 
         F_PO_TITLE__ENUM_TITLE_ACTION.set(setTimes, E_ENUM_TITLE_ACTION.getByOrdinal(1));
         F_PO_TITLE__BASE_COMPONENT.set(setSubtitle, M_CHAT_SERIALIZER__FROM_JSON.invoke(null, subtitle.toJson(viewer.cannotRenderHexColors())));
-
-        viewer.sendPackets(setTimes, setTimes, setSubtitle);
-        return;
       }
 
-      Object setTimes = reflection.createEmptyPacket(C_CLB_TITLES_ANIMATION), setTitle = reflection.createEmptyPacket(C_CLB_TITLE), setSubtitle = reflection.createEmptyPacket(C_CLB_SUBTITLE);
+      // Newer version, create three different packets
+      else {
+        setTimes = reflection.createEmptyPacket(C_CLB_TITLES_ANIMATION);
+        setTitle = reflection.createEmptyPacket(C_CLB_TITLE);
+        setSubtitle = reflection.createEmptyPacket(C_CLB_SUBTITLE);
 
-      F_CLB_TITLES_ANIMATION__FADE_IN.set(setTimes, fadeIn);
-      F_CLB_TITLES_ANIMATION__STAY.set(setTimes, duration);
-      F_CLB_TITLES_ANIMATION__FADE_OUT.set(setTimes, fadeOut);
+        F_CLB_TITLES_ANIMATION__FADE_IN.set(setTimes, fadeIn);
+        F_CLB_TITLES_ANIMATION__STAY.set(setTimes, duration);
+        F_CLB_TITLES_ANIMATION__FADE_OUT.set(setTimes, fadeOut);
 
-      F_CLB_TITLE__BASE_COMPONENT.set(setTitle, M_CHAT_SERIALIZER__FROM_JSON.invoke(null, title.toJson(viewer.cannotRenderHexColors())));
+        F_CLB_TITLE__BASE_COMPONENT.set(setTitle, M_CHAT_SERIALIZER__FROM_JSON.invoke(null, title.toJson(viewer.cannotRenderHexColors())));
+        F_CLB_SUBTITLE__BASE_COMPONENT.set(setSubtitle, M_CHAT_SERIALIZER__FROM_JSON.invoke(null, subtitle.toJson(viewer.cannotRenderHexColors())));
+      }
 
-      F_CLB_SUBTITLE__BASE_COMPONENT.set(setSubtitle, M_CHAT_SERIALIZER__FROM_JSON.invoke(null, subtitle.toJson(viewer.cannotRenderHexColors())));
-
-      viewer.sendPackets(setTimes, setTitle, setSubtitle);
+      viewer.sendPacket(setTimes, null);
+      viewer.sendPacket(setTitle, null);
+      viewer.sendPacket(setSubtitle, null);
     } catch (Exception e) {
       logger.logError(e);
     }
@@ -265,9 +272,7 @@ public class ComponentApplicator implements IComponentApplicator {
   }
 
   @Override
-  public void updatePlayerlistName(@Nullable IComponent name, Player p) {
-    // TODO: Don't broadcast but rather scope per player to have proper individualized #cannotRenderHexColors
-
+  public void updatePlayerlistName(@Nullable IComponent name, Player p, @Nullable List<Player> audience) {
     try {
       Object info = reflection.createEmptyPacket(C_PO_PLAYER_INFO);
       ICustomizableViewer viewer = interceptor.getPlayerAsViewer(p);
@@ -286,7 +291,16 @@ public class ComponentApplicator implements IComponentApplicator {
       F_PO_PLAYER_INFO__ENUM.set(info, E_ENUM_PLAYER_INFO_ACTION.getByOrdinal(3));
       F_PO_PLAYER_INFO__LIST.set(info, dataList);
 
-      interceptor.broadcastPackets(info);
+      // Always send the update to the target
+      interceptor.getPlayerAsViewer(p).sendPacket(info, null);
+
+      // No audience specified
+      if (audience == null)
+        return;
+
+      // Also update all audience members
+      for (Player t : audience)
+        interceptor.getPlayerAsViewer(t).sendPacket(info, null);
     } catch (Exception e) {
       logger.logError(e);
     }
