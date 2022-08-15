@@ -40,8 +40,10 @@ import java.util.stream.Collectors;
 @AutoConstruct
 public class ComponentApplicator implements IComponentApplicator {
 
+  private final EnumHandle E_ENUM_TITLE_ACTION, E_ENUM_PLAYER_INFO_ACTION;
+
   private final ClassHandle C_PO_TITLE, C_CLB_TITLES_ANIMATION, C_CLB_TITLE, C_CLB_SUBTITLE,
-    C_ENUM_TITLE_ACTION, C_PO_PLAYER_INFO, C_ENUM_PLAYER_INFO_ACTION;
+    C_PO_PLAYER_INFO;
 
   private final FieldHandle F_CLB_TITLE__BASE_COMPONENT, F_CLB_SUBTITLE__BASE_COMPONENT,
     F_CLB_TITLES_ANIMATION__FADE_IN, F_CLB_TITLES_ANIMATION__STAY, F_CLB_TITLES_ANIMATION__FADE_OUT,
@@ -81,8 +83,8 @@ public class ComponentApplicator implements IComponentApplicator {
 
     C_PO_TITLE                = reflection.getClassOptional(RClass.PACKET_O_TITLE);
     C_PO_PLAYER_INFO          = reflection.getClass(RClass.PACKET_O_PLAYER_INFO);
-    C_ENUM_PLAYER_INFO_ACTION = reflection.getClass(RClass.ENUM_PLAYER_INFO_ACTION);
-    C_ENUM_TITLE_ACTION       = reflection.getClassOptional(RClass.ENUM_TITLE_ACTION);
+    E_ENUM_PLAYER_INFO_ACTION = reflection.getClass(RClass.ENUM_PLAYER_INFO_ACTION).asEnum();
+    E_ENUM_TITLE_ACTION       = reflection.getEnumOptional(RClass.ENUM_TITLE_ACTION);
     C_CLB_TITLES_ANIMATION    = reflection.getClassOptional(RClass.CLIENTBOUND_TITLES_ANIMATION);
     C_CLB_TITLE               = reflection.getClassOptional(RClass.CLIENTBOUND_TITLE_SET);
     C_CLB_SUBTITLE            = reflection.getClassOptional(RClass.CLIENTBOUND_SUBTITLE_SET);
@@ -103,7 +105,7 @@ public class ComponentApplicator implements IComponentApplicator {
     // PacketPlayOut (older)
     if (C_PO_TITLE != null) {
       F_PO_TITLE__BASE_COMPONENT    = C_PO_TITLE.locateField().withType(C_BASE_COMPONENT).required();
-      F_PO_TITLE__ENUM_TITLE_ACTION = C_PO_TITLE.locateField().withType(C_ENUM_TITLE_ACTION).required();
+      F_PO_TITLE__ENUM_TITLE_ACTION = C_PO_TITLE.locateField().withType(E_ENUM_TITLE_ACTION).required();
       F_PO_TITLE__FADE_IN           = C_PO_TITLE.locateField().withType(int.class).required();
       F_PO_TITLE__STAY              = C_PO_TITLE.locateField().withType(int.class).withSkip(1).required();
       F_PO_TITLE__FADE_OUT          = C_PO_TITLE.locateField().withType(int.class).withSkip(2).required();
@@ -133,7 +135,7 @@ public class ComponentApplicator implements IComponentApplicator {
     else
       throw new IllegalStateException("Couldn't find neither newer nor older title packets.");
 
-    F_PO_PLAYER_INFO__ENUM = C_PO_PLAYER_INFO.locateField().withType(C_ENUM_PLAYER_INFO_ACTION).required();
+    F_PO_PLAYER_INFO__ENUM = C_PO_PLAYER_INFO.locateField().withType(E_ENUM_PLAYER_INFO_ACTION).required();
     F_PO_PLAYER_INFO__LIST = C_PO_PLAYER_INFO.locateField().withType(List.class).withGeneric(C_PLAYER_INFO_DATA).required();
 
     CT_PLAYER_INFO_DATA = C_PLAYER_INFO_DATA.locateConstructor().withParameters(GameProfile.class, int.class).withParameters(C_ENUM_GAME_MODE, C_BASE_COMPONENT).required();
@@ -218,7 +220,6 @@ public class ComponentApplicator implements IComponentApplicator {
   }
 
   @Override
-  @SuppressWarnings("unchecked")
   public void sendTitle(IComponent title, IComponent subtitle, int fadeIn, int duration, int fadeOut, ICustomizableViewer viewer) {
     try {
       // Older version, create three different instances of the same packet
@@ -226,17 +227,16 @@ public class ComponentApplicator implements IComponentApplicator {
         Object setTimes = reflection.createEmptyPacket(C_PO_TITLE), setTitle = reflection.createEmptyPacket(C_PO_TITLE), setSubtitle = reflection.createEmptyPacket(C_PO_TITLE);
 
         // 0 TITLE, 1 SUBTITLE, 2 ACTIONBAR, 3 TIMES, 4 CLEAR, 5 RESET
-        Enum<?>[] titleActions = ((Class<? extends Enum<?>>) C_ENUM_TITLE_ACTION.get()).getEnumConstants();
 
-        F_PO_TITLE__ENUM_TITLE_ACTION.set(setTimes, titleActions[3]);
+        F_PO_TITLE__ENUM_TITLE_ACTION.set(setTimes, E_ENUM_TITLE_ACTION.getByOrdinal(3));
         F_PO_TITLE__FADE_IN.set(setTimes, fadeIn);
         F_PO_TITLE__STAY.set(setTimes, duration);
         F_PO_TITLE__FADE_OUT.set(setTimes, fadeOut);
 
-        F_PO_TITLE__ENUM_TITLE_ACTION.set(setTitle, titleActions[0]);
+        F_PO_TITLE__ENUM_TITLE_ACTION.set(setTitle, E_ENUM_TITLE_ACTION.getByOrdinal(0));
         F_PO_TITLE__BASE_COMPONENT.set(setTitle, M_CHAT_SERIALIZER__FROM_JSON.invoke(null, title.toJson(viewer.cannotRenderHexColors())));
 
-        F_PO_TITLE__ENUM_TITLE_ACTION.set(setTimes, titleActions[1]);
+        F_PO_TITLE__ENUM_TITLE_ACTION.set(setTimes, E_ENUM_TITLE_ACTION.getByOrdinal(1));
         F_PO_TITLE__BASE_COMPONENT.set(setSubtitle, M_CHAT_SERIALIZER__FROM_JSON.invoke(null, subtitle.toJson(viewer.cannotRenderHexColors())));
 
         viewer.sendPackets(setTimes, setTimes, setSubtitle);
@@ -265,7 +265,6 @@ public class ComponentApplicator implements IComponentApplicator {
   }
 
   @Override
-  @SuppressWarnings("unchecked")
   public void updatePlayerlistName(@Nullable IComponent name, Player p) {
     // TODO: Don't broadcast but rather scope per player to have proper individualized #cannotRenderHexColors
 
@@ -274,8 +273,6 @@ public class ComponentApplicator implements IComponentApplicator {
       ICustomizableViewer viewer = interceptor.getPlayerAsViewer(p);
       JsonObject json = name == null ? null : name.toJson(viewer.cannotRenderHexColors());
 
-      // 0: add player, 1: update gamemode, 2: update latency, 3: update display name, 4: remove player
-      Enum<?> updateEnum = ((Class<? extends Enum<?>>) C_ENUM_PLAYER_INFO_ACTION.get()).getEnumConstants()[3];
       GameProfile profile = (GameProfile) M_CRAFT_PLAYER__GET_PROFILE.invoke(p);
 
       List<?> dataList = List.of(
@@ -285,7 +282,8 @@ public class ComponentApplicator implements IComponentApplicator {
         )
       );
 
-      F_PO_PLAYER_INFO__ENUM.set(info, updateEnum);
+      // 0: add player, 1: update gamemode, 2: update latency, 3: update display name, 4: remove player
+      F_PO_PLAYER_INFO__ENUM.set(info, E_ENUM_PLAYER_INFO_ACTION.getByOrdinal(3));
       F_PO_PLAYER_INFO__LIST.set(info, dataList);
 
       interceptor.broadcastPackets(info);
