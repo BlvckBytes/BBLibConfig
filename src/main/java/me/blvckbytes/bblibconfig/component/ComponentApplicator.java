@@ -9,6 +9,7 @@ import me.blvckbytes.bblibreflect.*;
 import me.blvckbytes.bblibreflect.communicator.ChatCommunicator;
 import me.blvckbytes.bblibreflect.communicator.parameter.ChatMessageParameter;
 import me.blvckbytes.bblibreflect.handle.*;
+import me.blvckbytes.bblibutil.component.IComponent;
 import me.blvckbytes.bblibutil.logger.ILogger;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;

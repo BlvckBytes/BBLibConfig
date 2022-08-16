@@ -4,6 +4,7 @@ import com.mojang.authlib.GameProfile;
 import me.blvckbytes.bblibconfig.component.IComponentApplicator;
 import me.blvckbytes.bblibdi.AutoConstruct;
 import me.blvckbytes.bblibdi.AutoInject;
+import me.blvckbytes.bblibutil.component.GradientGenerator;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 

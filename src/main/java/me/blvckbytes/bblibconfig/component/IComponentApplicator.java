@@ -1,6 +1,7 @@
 package me.blvckbytes.bblibconfig.component;
 
 import me.blvckbytes.bblibreflect.ICustomizableViewer;
+import me.blvckbytes.bblibutil.component.IComponent;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.Nullable;
