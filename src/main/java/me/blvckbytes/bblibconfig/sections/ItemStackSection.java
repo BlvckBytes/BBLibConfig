@@ -22,6 +22,8 @@ import org.jetbrains.annotations.Nullable;
 
 import java.lang.reflect.Field;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.function.Function;
 
 /*
@@ -91,33 +93,58 @@ public class ItemStackSection extends AConfigSection {
    * Compares all available values of this section against the
    * provided item and checks if they match
    * @param item Target item
+   * @param nonBreakers Optional set of mismatches which do not break the comparison chain
    */
-  public boolean describesItem(@Nullable ItemStack item) {
-    if (item == null)
-      return false;
+  public @Nullable Set<ComparisonMismatch> describesItem(@Nullable ItemStack item, @Nullable Set<ComparisonMismatch> nonBreakers) {
+    Set<ComparisonMismatch> results = new HashSet<>();
+
+    if (item == null) {
+      results.add(ComparisonMismatch.IS_NULL);
+      return results;
+    }
 
     XMaterial m = getType() == null ? null : getType().asScalar(XMaterial.class);
 
-    if (m != null && !m.isSimilar(item))
-      return false;
+    if (m != null && !m.isSimilar(item)) {
+      results.add(ComparisonMismatch.TYPE_MISMATCH);
+
+      if (nonBreakers == null || !nonBreakers.contains(ComparisonMismatch.TYPE_MISMATCH))
+        return results;
+    }
 
     if (amount != null) {
       Integer am = amount.asScalar(Integer.class);
-      if (am != null && am != item.getAmount())
-        return false;
+      if (am != null && am != item.getAmount()) {
+        results.add(ComparisonMismatch.AMOUNT_MISMATCH);
+
+        if (nonBreakers == null || !nonBreakers.contains(ComparisonMismatch.AMOUNT_MISMATCH))
+          return results;
+      }
     }
 
     // Compare displayname
-    if (!checkMeta(item, name, meta -> name.asScalar().equals(meta.getDisplayName())))
-      return false;
+    if (!checkMeta(item, name, meta -> name.asScalar().equals(meta.getDisplayName()))) {
+      results.add(ComparisonMismatch.DISPLAYNAME_MISMATCH);
+
+      if (nonBreakers == null || !nonBreakers.contains(ComparisonMismatch.DISPLAYNAME_MISMATCH))
+        return results;
+    }
 
     // Compare lore lines for equality (and order)
-    if (!checkMeta(item, lore, meta -> lore.asList().equals(meta.getLore())))
-      return false;
+    if (!checkMeta(item, lore, meta -> lore.asList().equals(meta.getLore()))) {
+      results.add(ComparisonMismatch.LORE_MISMATCH);
+
+      if (nonBreakers == null || !nonBreakers.contains(ComparisonMismatch.LORE_MISMATCH))
+        return results;
+    }
 
     // Compare flag entries for equality (ignoring order)
-    if (!checkMeta(item, flags, meta -> flags.asSet(ItemFlag.class).equals(meta.getItemFlags())))
-      return false;
+    if (!checkMeta(item, flags, meta -> flags.asSet(ItemFlag.class).equals(meta.getItemFlags()))) {
+      results.add(ComparisonMismatch.FLAGS_MISMATCH);
+
+      if (nonBreakers == null || !nonBreakers.contains(ComparisonMismatch.FLAGS_MISMATCH))
+        return results;
+    }
 
     // Compare either potion color or leather color
     if (!checkMeta(item, color, meta -> {
@@ -129,8 +156,12 @@ public class ItemStackSection extends AConfigSection {
 
       // Not colorable
       return false;
-    }))
-      return false;
+    })) {
+      results.add(ComparisonMismatch.COLOR_MISMATCH);
+
+      if (nonBreakers == null || !nonBreakers.contains(ComparisonMismatch.COLOR_MISMATCH))
+        return results;
+    }
 
     // Check for the presence of all enchantments at the right levels (ignoring order)
     if (!checkMeta(item, enchantments, meta -> {
@@ -153,8 +184,12 @@ public class ItemStackSection extends AConfigSection {
       }
       // All enchantments matched
       return true;
-    }))
-      return false;
+    })) {
+      results.add(ComparisonMismatch.ENCHANTMENTS_MISMATCH);
+
+      if (nonBreakers == null || !nonBreakers.contains(ComparisonMismatch.ENCHANTMENTS_MISMATCH))
+        return results;
+    }
 
     // Compare for head textures
     if (!checkMeta(item, textures, meta -> {
@@ -185,8 +220,12 @@ public class ItemStackSection extends AConfigSection {
       } catch (Exception ignored) {}
 
       return false;
-    }))
-      return false;
+    })) {
+      results.add(ComparisonMismatch.TEXTURES_MISMATCH);
+
+      if (nonBreakers == null || !nonBreakers.contains(ComparisonMismatch.TEXTURES_MISMATCH))
+        return results;
+    }
 
     // Compare the base potion effect
     if (!checkMeta(item, baseEffect, meta -> {
@@ -194,8 +233,12 @@ public class ItemStackSection extends AConfigSection {
       if (!(meta instanceof PotionMeta))
         return false;
       return baseEffect.describesData(((PotionMeta) meta).getBasePotionData());
-    }))
-      return false;
+    })) {
+      results.add(ComparisonMismatch.BASE_EFFECT_MISMATCH);
+
+      if (nonBreakers == null || !nonBreakers.contains(ComparisonMismatch.BASE_EFFECT_MISMATCH))
+        return results;
+    }
 
     // Check for the presence of all custom effects (ignoring order)
     if (!checkMeta(item, customEffects, meta -> {
@@ -214,13 +257,16 @@ public class ItemStackSection extends AConfigSection {
 
       // All effects present
       return true;
-    }))
-      return false;
+    })) {
+      results.add(ComparisonMismatch.CUSTOM_EFFECTS_MISMATCH);
+
+      if (nonBreakers == null || !nonBreakers.contains(ComparisonMismatch.CUSTOM_EFFECTS_MISMATCH))
+        return results;
+    }
 
     // TODO: Compare banner patterns
 
-    // All checks passed
-    return true;
+    return results.size() > 0 ? results : null;
   }
 
   /**
