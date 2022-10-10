@@ -197,6 +197,9 @@ public class ConfigReader {
 
           field.setAccessible(true);
 
+          // A field is marked as always by either being directly marked, or by being the member of a marked class
+          boolean isAlways = field.isAnnotationPresent(CSAlways.class) || type.isAnnotationPresent(CSAlways.class);
+
           String fName = field.getName();
           Class<?> fType = field.getType();
           String fKey = join(cKey, fName);
@@ -207,8 +210,6 @@ public class ConfigReader {
 
           // Is another config section and thus needs recursion
           if (AConfigSection.class.isAssignableFrom(fType)) {
-            // A field is marked as always by either being directly marked, or by being the member of a marked class
-            boolean isAlways = field.isAnnotationPresent(CSAlways.class) || type.isAnnotationPresent(CSAlways.class);
 
             Object v = parseValueSub(fKey, (Class<? extends AConfigSection>) fType, field, false, isAlways).orElse(null);
             if (v != null)
@@ -224,6 +225,14 @@ public class ConfigReader {
           // Failed, try to ask for a default value
           if (v == null)
             v = res.defaultFor(ffType, fName);
+
+          // Still null and has always flag, create an empty collection of length zero
+          if (v == null && isAlways) {
+            if (fType.isArray())
+              v = Array.newInstance(fType.getComponentType(), 0);
+            else if (List.class.isAssignableFrom(fType))
+              v = new ArrayList<>();
+          }
 
           if (v != null)
             field.set(res, v);
