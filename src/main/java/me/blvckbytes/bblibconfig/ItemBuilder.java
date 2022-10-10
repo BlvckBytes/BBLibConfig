@@ -86,7 +86,7 @@ public class ItemBuilder implements IItemBuildable {
     this.stack = item;
     this.meta = item.getItemMeta();
 
-    if (this.meta == null)
+    if (this.stack.getType() != Material.AIR && this.meta == null)
       throw new IllegalStateException("Invalid item provided.");
 
     this.stack.setAmount(amount);
@@ -152,7 +152,8 @@ public class ItemBuilder implements IItemBuildable {
    * @param level Level to add the enchantment with
    */
   public ItemBuilder withEnchantment(Enchantment enchantment, int level) {
-    this.meta.addEnchant(enchantment, level, true);
+    if (this.meta != null)
+      this.meta.addEnchant(enchantment, level, true);
     return this;
   }
 
@@ -178,7 +179,8 @@ public class ItemBuilder implements IItemBuildable {
   }
 
   public ItemBuilder withFlag(ItemFlag flag) {
-    this.meta.addItemFlags(flag);
+    if (this.meta != null)
+      this.meta.addItemFlags(flag);
     return this;
   }
 
@@ -202,7 +204,7 @@ public class ItemBuilder implements IItemBuildable {
   }
 
   public ItemBuilder withColor(Color color) {
-    this.applyColor(color);
+    this.applyColor(this.meta, color);
     return this;
   }
 
@@ -215,7 +217,7 @@ public class ItemBuilder implements IItemBuildable {
   }
 
   public ItemBuilder withBaseEffect(PotionData effect) {
-    this.applyBaseEffect(effect);
+    this.applyBaseEffect(this.meta, effect);
     return this;
   }
 
@@ -228,7 +230,7 @@ public class ItemBuilder implements IItemBuildable {
   }
 
   public ItemBuilder withCustomEffect(PotionEffect effect) {
-    this.applyCustomEffect(effect);
+    this.applyCustomEffect(this.meta, effect);
     return this;
   }
 
@@ -282,7 +284,7 @@ public class ItemBuilder implements IItemBuildable {
   }
 
   public ItemBuilder withTextures(String textures) {
-    this.applyTextures(textures);
+    this.applyTextures(this.meta, textures);
     return this;
   }
 
@@ -299,13 +301,21 @@ public class ItemBuilder implements IItemBuildable {
    * @param profile Game profile to set
    */
   public ItemBuilder withHeadProfile(GameProfile profile) {
-    if (this.meta == null || !(this.meta instanceof SkullMeta))
+    return this.withHeadProfile(this.meta, profile);
+  }
+
+  /**
+   * Sets the head game profile of the item-meta
+   * @param profile Game profile to set
+   */
+  private ItemBuilder withHeadProfile(ItemMeta meta, GameProfile profile) {
+    if (!(meta instanceof SkullMeta))
       return this;
 
     // Try to find the setProfile method
     Method setProfileMethod = null;
     try {
-      setProfileMethod = this.meta.getClass().getDeclaredMethod("setProfile", GameProfile.class);
+      setProfileMethod = meta.getClass().getDeclaredMethod("setProfile", GameProfile.class);
     } catch (Exception ignored) {}
 
     try {
@@ -317,7 +327,7 @@ public class ItemBuilder implements IItemBuildable {
       // the serialized profile field without which bukkit will panic on ItemStack#isSimilar() or ItemStack#equals()
       if (setProfileMethod != null) {
         setProfileMethod.setAccessible(true);
-        setProfileMethod.invoke(this.meta, profile);
+        setProfileMethod.invoke(meta, profile);
         return this;
       }
 
@@ -333,7 +343,7 @@ public class ItemBuilder implements IItemBuildable {
   }
 
   public ItemBuilder withPatterns(List<Pattern> patterns) {
-    patterns.forEach(this::applyPattern);
+    patterns.forEach(pattern -> this.applyPattern(this.meta, pattern));
     return this;
   }
 
@@ -363,6 +373,7 @@ public class ItemBuilder implements IItemBuildable {
   @Override
   public ItemStack build(@Nullable Map<String, String> variables, @Nullable ICustomizableViewer viewer) {
     ItemStack res = stack.clone();
+
     ItemMeta resMeta = res.getItemMeta();
 
     if (resMeta == null)
@@ -399,6 +410,8 @@ public class ItemBuilder implements IItemBuildable {
         viewer != null && viewer.cannotRenderHexColors(),
         res
       );
+
+      resMeta = res.getItemMeta();
     }
 
     /////////////////////////////////// Lore ///////////////////////////////////
@@ -425,22 +438,24 @@ public class ItemBuilder implements IItemBuildable {
         viewer != null && viewer.cannotRenderHexColors(),
         res
       );
+
+      resMeta = res.getItemMeta();
     }
 
     /////////////////////////////////// Color //////////////////////////////////
 
     if (cColor != null)
-      applyColor(cColor.copy().withVariables(variables).asScalar(Color.class));
+      applyColor(resMeta, cColor.copy().withVariables(variables).asScalar(Color.class));
 
     ////////////////////////////////// Textures /////////////////////////////////
 
     if (cTextures != null)
-      applyTextures(cTextures.copy().withVariables(variables).asScalar());
+      applyTextures(resMeta, cTextures.copy().withVariables(variables).asScalar());
 
     //////////////////////////////// Base Effect ////////////////////////////////
 
     if (cBaseEffect != null)
-      applyBaseEffect(cBaseEffect.asData(variables));
+      applyBaseEffect(resMeta, cBaseEffect.asData(variables));
 
     ////////////////////////////// Custom Effects ///////////////////////////////
 
@@ -448,8 +463,10 @@ public class ItemBuilder implements IItemBuildable {
       if (customEffectsOverride)
         ((PotionMeta) resMeta).clearCustomEffects();
 
-      if (cCustomEffects.size() > 0)
-        cCustomEffects.forEach(eff -> applyCustomEffect(eff.asEffect(variables)));
+      if (cCustomEffects.size() > 0) {
+        ItemMeta finalResMeta = resMeta;
+        cCustomEffects.forEach(eff -> applyCustomEffect(finalResMeta, eff.asEffect(variables)));
+      }
     }
 
     //////////////////////////////// Enchantments ///////////////////////////////
@@ -458,6 +475,7 @@ public class ItemBuilder implements IItemBuildable {
       resMeta.getEnchants().keySet().forEach(resMeta::removeEnchant);
 
     if (cEnchantments.size() > 0) {
+      ItemMeta finalResMeta = resMeta;
       cEnchantments.forEach(ench -> {
         Tuple<Enchantment, Integer> enchantment = ench.asEnchantment(variables);
 
@@ -466,7 +484,7 @@ public class ItemBuilder implements IItemBuildable {
           return;
 
         // Apply enchantment
-        meta.addEnchant(enchantment.getA(), enchantment.getB(), true);
+        finalResMeta.addEnchant(enchantment.getA(), enchantment.getB(), true);
       });
     }
 
@@ -476,12 +494,13 @@ public class ItemBuilder implements IItemBuildable {
       resMeta.removeItemFlags(resMeta.getItemFlags().toArray(ItemFlag[]::new));
 
     if (cFlags.size() > 0) {
+      ItemMeta finalResMeta = resMeta;
       cFlags.forEach(f -> {
         // Try to parse into an ItemFlag
         ItemFlag flag = f.asScalar(ItemFlag.class);
 
         if (flag != null)
-          meta.addItemFlags(flag);
+          finalResMeta.addItemFlags(flag);
       });
     }
 
@@ -494,10 +513,13 @@ public class ItemBuilder implements IItemBuildable {
           bm.removePattern(0);
       }
 
-      if (cPatterns.size() > 0)
-        cPatterns.forEach(p -> applyPattern(p.asPattern(variables)));
+      if (cPatterns.size() > 0) {
+        ItemMeta finalResMeta = resMeta;
+        cPatterns.forEach(p -> applyPattern(finalResMeta, p.asPattern(variables)));
+      }
     }
 
+    res.setItemMeta(resMeta);
     return res;
   }
 
@@ -595,53 +617,53 @@ public class ItemBuilder implements IItemBuildable {
    * Applies a color value to the item-meta, based on it's type
    * @param color Color value
    */
-  private void applyColor(@Nullable Color color) {
-    if (this.meta instanceof LeatherArmorMeta)
-      ((LeatherArmorMeta) this.meta).setColor(color);
+  private void applyColor(ItemMeta meta, @Nullable Color color) {
+    if (meta instanceof LeatherArmorMeta)
+      ((LeatherArmorMeta) meta).setColor(color);
 
-    else if (this.meta instanceof PotionMeta)
-      ((PotionMeta) this.meta).setColor(color);
+    else if (meta instanceof PotionMeta)
+      ((PotionMeta) meta).setColor(color);
 
-    else if (this.meta instanceof MapMeta)
-      ((MapMeta) this.meta).setColor(color);
+    else if (meta instanceof MapMeta)
+      ((MapMeta) meta).setColor(color);
   }
 
   /**
    * Applies a potion base effect
    * @param effect Base effect
    */
-  private void applyBaseEffect(PotionData effect) {
-    if (this.meta instanceof PotionMeta)
-      ((PotionMeta) this.meta).setBasePotionData(effect);
+  private void applyBaseEffect(ItemMeta meta, PotionData effect) {
+    if (meta instanceof PotionMeta)
+      ((PotionMeta) meta).setBasePotionData(effect);
   }
 
   /**
    * Applies a custom potion effect
    * @param effect Custom effect
    */
-  private void applyCustomEffect(@Nullable PotionEffect effect) {
+  private void applyCustomEffect(ItemMeta meta, @Nullable PotionEffect effect) {
     if (effect == null)
       return;
 
-    if (this.meta instanceof PotionMeta)
-      ((PotionMeta) this.meta).addCustomEffect(effect, true);
+    if (meta instanceof PotionMeta)
+      ((PotionMeta) meta).addCustomEffect(effect, true);
   }
 
   /**
    * Applies a base64 texture value to a skull
    * @param textures Texture value
    */
-  private void applyTextures(String textures) {
-    GameProfile prof = new GameProfile(UUID.randomUUID(), null);
+  private void applyTextures(ItemMeta meta, String textures) {
+    GameProfile prof = new GameProfile(UUID.randomUUID(), "");
     prof.getProperties().put("textures", new Property("textures", textures));
-    withHeadProfile(prof);
+    withHeadProfile(meta, prof);
   }
 
   /**
    * Applies a banner pattern to a banner
    * @param pattern Banner pattern
    */
-  private void applyPattern(@Nullable Pattern pattern) {
+  private void applyPattern(ItemMeta meta, @Nullable Pattern pattern) {
     if (pattern == null)
       return;
 
