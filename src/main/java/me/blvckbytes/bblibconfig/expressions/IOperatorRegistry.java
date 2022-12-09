@@ -1,10 +1,10 @@
-package me.blvckbytes.bblibconfig;
+package me.blvckbytes.bblibconfig.expressions;
 
 /*
   Author: BlvckBytes <blvckbytes@gmail.com>
-  Created On: 08/12/2022
+  Created On: 12/09/2022
 
-  Represents the evaluator used to evaluate configuration expressions.
+  Represents the central registry which maps operation types to their implementations.
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Affero General Public License as published
@@ -19,21 +19,8 @@ package me.blvckbytes.bblibconfig;
   You should have received a copy of the GNU Affero General Public License
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-public interface IExpressionEvaluator {
+public interface IOperatorRegistry {
 
-  /**
-   * Evaluate a string's result which may contain evaluateable expressions
-   * @param input Input string
-   * @param dataProvider Data provider which makes up the evaluation context
-   * @return Evaluated result
-   */
-  String evaluate(String input, IExpressionDataProvider dataProvider);
-
-  /**
-   * Parse a human readable boolean value
-   * @param input String value
-   * @return Parsed boolean
-   */
-  boolean parseBoolean(String input);
+  void register(ExpressionOperation type, IOperation operation);
 
 }

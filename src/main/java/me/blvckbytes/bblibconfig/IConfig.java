@@ -31,15 +31,16 @@ public interface IConfig {
   Optional<ConfigValue> get(String path, String key);
 
   /**
+   * Check whether a value exists within an available config file, identified by it's key
+   * @param path Path of the target config file (no leading slash, no .yml)
+   * @param key Key to identify the value
+   */
+  boolean exists(String path, String key);
+
+  /**
    * Get an advanced config reader for a given file
    * @param path Path of the target config file (no leading slash, no .yml)
    */
   Optional<ConfigReader> reader(String path);
-
-  /**
-   * Get the file global LUT resolver
-   * @param path Path of the target config file (no leading slash, no .yml)
-   */
-  Optional<ILutResolver> getLutResolver(String path);
 
 }

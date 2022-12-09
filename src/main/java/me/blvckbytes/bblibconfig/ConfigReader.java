@@ -1,9 +1,8 @@
 package me.blvckbytes.bblibconfig;
 
 import com.google.common.primitives.Primitives;
-import me.blvckbytes.bblibconfig.sections.CSAlways;
-import me.blvckbytes.bblibconfig.sections.CSIgnore;
-import me.blvckbytes.bblibconfig.sections.CSMap;
+import me.blvckbytes.bblibconfig.expressions.IExpressionEvaluator;
+import me.blvckbytes.bblibconfig.sections.*;
 import me.blvckbytes.bblibutil.logger.ILogger;
 import org.bukkit.configuration.MemorySection;
 import org.jetbrains.annotations.Nullable;
@@ -33,19 +32,22 @@ import java.util.stream.Collectors;
   You should have received a copy of the GNU Affero General Public License
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-public class ConfigReader {
+public class ConfigReader implements ILutResolver {
 
   private final IConfig cfg;
   private final String path;
+  private final IExpressionEvaluator evaluator;
   private final @Nullable ILogger logger;
   private final Map<String, Object> parseCache;
 
   public ConfigReader(
     IConfig cfg, String path,
-    @Nullable ILogger logger
+    @Nullable ILogger logger,
+    @Nullable IExpressionEvaluator evaluator
   ) {
     this.cfg = cfg;
     this.path = path;
+    this.evaluator = evaluator;
     this.logger = logger;
     this.parseCache = new HashMap<>();
   }
@@ -84,9 +86,19 @@ public class ConfigReader {
     // Null keys mean root level scope
     String cKey = key == null ? "" : key;
 
+    // Data type supports expressions and the marker exists as a child of the current key
+    String expressionKey = join(cKey, ExpressionSection.MARKER);
+    if (cfg.exists(path, expressionKey) && type == ConfigValue.class) {
+      Optional<ExpressionSection> expression = parseValueSub(expressionKey, ExpressionSection.class, f, withinArray, ignoreMissing);
+
+      // Expression has been properly notated
+      if (expression.isPresent())
+        return Optional.of(type.cast(new ConfigValue(expression.get(), evaluator, this)));
+    }
+
     if (
       // Does not exist
-      cfg.get(path, cKey).isEmpty() &&
+      !cfg.exists(path, cKey) &&
       // And is either within an array (missing = stop condition), or missing is not being ignored
       (!ignoreMissing || withinArray)
     )
@@ -202,7 +214,9 @@ public class ConfigReader {
 
           String fName = field.getName();
           Class<?> fType = field.getType();
-          String fKey = join(cKey, fName);
+
+          // If this field is inlined, do not append it's name to the path
+          String fKey = field.getAnnotation(CSInlined.class) != null ? cKey : join(cKey, fName);
 
           // Try to transform the type by letting the class decide at runtime
           if (fType == Object.class)
@@ -315,5 +329,11 @@ public class ConfigReader {
       return keyA + keyB;
 
     return keyA + "." + keyB;
+  }
+
+  @Override
+  @SuppressWarnings("unchecked")
+  public Optional<Map<String, String>> getLut(String name) {
+    return parseValue("lut." + name, Map.class, true).map(m -> (Map<String, String>) m);
   }
 }

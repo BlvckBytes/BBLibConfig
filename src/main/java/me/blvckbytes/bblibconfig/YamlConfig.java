@@ -1,5 +1,6 @@
 package me.blvckbytes.bblibconfig;
 
+import me.blvckbytes.bblibconfig.expressions.IExpressionEvaluator;
 import me.blvckbytes.bblibdi.AutoConstruct;
 import me.blvckbytes.bblibdi.AutoInject;
 import me.blvckbytes.bblibdi.AutoInjectLate;
@@ -43,18 +44,19 @@ public class YamlConfig implements IConfig, IAutoConstructed {
   // Mapping config paths to a tuple of the in-memory config and it's underlying file
   private final Map<String, Tuple<YamlConfiguration, File>> configs;
   private final Map<String, ConfigReader> readers;
-  private final Map<String, ILutResolver> resolvers;
+  private final IExpressionEvaluator evaluator;
   private final JavaPlugin plugin;
 
   @AutoInjectLate
   private ILogger logger;
 
   public YamlConfig(
-    @AutoInject JavaPlugin plugin
+    @AutoInject JavaPlugin plugin,
+    @AutoInject IExpressionEvaluator evaluator
   ) {
     this.configs = new HashMap<>();
     this.readers = new HashMap<>();
-    this.resolvers = new HashMap<>();
+    this.evaluator = evaluator;
     this.plugin = plugin;
 
     // Copy default config files from the resource folder
@@ -79,6 +81,12 @@ public class YamlConfig implements IConfig, IAutoConstructed {
   }
 
   @Override
+  public boolean exists(String path, String key) {
+    // FIXME: Loading values just to check if they're present is wasteful
+    return get(path, key).isPresent();
+  }
+
+  @Override
   public Optional<ConfigReader> reader(String path) {
     Tuple<YamlConfiguration, File> handle = load(path).orElse(null);
 
@@ -89,7 +97,7 @@ public class YamlConfig implements IConfig, IAutoConstructed {
     if (readers.containsKey(path))
       return Optional.of(readers.get(path));
 
-    ConfigReader reader = new ConfigReader(this, path, logger);
+    ConfigReader reader = new ConfigReader(this, path, logger, evaluator);
     readers.put(path, reader);
     return Optional.of(reader);
   }
@@ -181,10 +189,10 @@ public class YamlConfig implements IConfig, IAutoConstructed {
 
     // Is a list, pass as a list
     if (obj instanceof List<?>)
-      return Optional.of(new ConfigValue((List<Object>) obj, getLutResolver(path).orElse(null)));
+      return Optional.of(new ConfigValue((List<Object>) obj, evaluator, reader(path).orElse(null)));
 
     // Pass as an unknown blob
-    return Optional.of(new ConfigValue(obj, getLutResolver(path).orElse(null)));
+    return Optional.of(new ConfigValue(obj, evaluator, reader(path).orElse(null)));
   }
 
   /**
@@ -211,11 +219,11 @@ public class YamlConfig implements IConfig, IAutoConstructed {
     // Is a list
     Class<?> valC = val.getClass();
     if (List.class.isAssignableFrom(valC))
-      return Optional.of(new ConfigValue((List<Object>) val, getLutResolver(path).orElse(null)));
+      return Optional.of(new ConfigValue((List<Object>) val, evaluator, reader(path).orElse(null)));
 
     // Is a scalar
     else
-      return Optional.of(new ConfigValue(val, getLutResolver(path).orElse(null)));
+      return Optional.of(new ConfigValue(val, evaluator, reader(path).orElse(null)));
   }
 
   /**
@@ -376,34 +384,5 @@ public class YamlConfig implements IConfig, IAutoConstructed {
     }
 
     return streams;
-  }
-
-  /**
-   * Get a LUT resolver for a specific configuration file by it's path
-   * @param path Path of the target file
-   * @return Optional LUT resolver, empty if the path was invalid
-   */
-  @SuppressWarnings("unchecked")
-  @Override
-  public Optional<ILutResolver> getLutResolver(String path) {
-    // Perform a cache lookup first
-    ILutResolver cache = resolvers.get(path);
-    if (cache != null)
-      return Optional.of(cache);
-
-    // Could not get a corresponding reader
-    ConfigReader reader = reader(path).orElse(null);
-    if (reader == null)
-      return Optional.empty();
-
-    // Create a new instance of the lut resolver
-    ILutResolver resolver = name -> (
-      reader.parseValue("lut." + name, Map.class, true)
-        .map(m -> (Map<String, String>) m)
-    );
-
-    // Cache and respond
-    resolvers.put(path, resolver);
-    return Optional.of(resolver);
   }
 }

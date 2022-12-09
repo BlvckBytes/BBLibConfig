@@ -9,6 +9,9 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import me.blvckbytes.bblibconfig.expressions.IExpressionDataProvider;
+import me.blvckbytes.bblibconfig.expressions.IExpressionEvaluator;
+import me.blvckbytes.bblibconfig.sections.ExpressionSection;
 import me.blvckbytes.bblibutil.component.GradientGenerator;
 import me.blvckbytes.bblibutil.component.TextComponent;
 import org.bukkit.Color;
@@ -58,24 +61,23 @@ public class ConfigValue implements IExpressionDataProvider {
   // Date format used when serializing dates from/to strings
   private static final DateFormat SERIALIZATION_FORMAT;
 
-  // Expression evaluator, "singleton" used accross all instances
-  private static final IExpressionEvaluator evaluator;
-
   static {
     DECIMAL_FORMAT = (DecimalFormat) NumberFormat.getInstance(Locale.US);
     DECIMAL_FORMAT.applyPattern("0.00");
     SERIALIZATION_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
-    evaluator = new ExpressionEvaluator();
   }
 
   ///////////////////////////////// Properties ////////////////////////////////
 
   // Unmodified items read from the config
-  private final List<Object> items;
+  @Getter private final List<Object> items;
 
   // Variable names and their values that need to be substituted
   // Names are translated to a pattern when added to the instance
   @Getter private final Map<String, String> variables;
+
+  // Expression evaluator used to substitute variables and execute expressions
+  @Getter private final @Nullable IExpressionEvaluator evaluator;
 
   // Lookup table resolver of the config this value came from
   @Getter private final @Nullable ILutResolver lutResolver;
@@ -94,20 +96,23 @@ public class ConfigValue implements IExpressionDataProvider {
   /**
    * Create a new config value builder by a value
    * @param val Value
+   * @param evaluator Expression evaluator
    * @param lutResolver Global lookup table resolver
    */
-  public ConfigValue(Object val, @Nullable ILutResolver lutResolver) {
-    this(List.of(val), lutResolver);
+  public ConfigValue(Object val, IExpressionEvaluator evaluator, @Nullable ILutResolver lutResolver) {
+    this(List.of(val), evaluator, lutResolver);
   }
 
   /**
    * Create a new config value builder containing multiple items
    * @param items List of items
+   * @param evaluator Expression evaluator
    * @param lutResolver Global lookup table resolver
    */
-  public ConfigValue(List<Object> items, @Nullable ILutResolver lutResolver) {
+  public ConfigValue(List<Object> items, IExpressionEvaluator evaluator, @Nullable ILutResolver lutResolver) {
     this.items = new ArrayList<>(items);
     this.lutResolver = lutResolver;
+    this.evaluator = evaluator;
     this.prefixMode = 'N';
     this.variables = new HashMap<>();
     this.areColorsEnabled = true;
@@ -273,7 +278,7 @@ public class ConfigValue implements IExpressionDataProvider {
     StringBuilder result = new StringBuilder();
 
     for (int i = 0; i < items.size(); i++) {
-      String line = items.get(i).toString();
+      String line = cast(items.get(i), String.class).orElseThrow();
 
       // Separate lines
       if (i != 0) {
@@ -287,7 +292,7 @@ public class ConfigValue implements IExpressionDataProvider {
         result.append(prefix);
 
       // Append the actual line after evaluation
-      result.append(evaluator.evaluate(line, this));
+      result.append(evaluator != null ? evaluator.substituteVariables(line, this) : line);
     }
 
     return result.toString();
@@ -302,7 +307,10 @@ public class ConfigValue implements IExpressionDataProvider {
    */
   public List<String> asList() {
     return items.stream()
-      .map(line -> evaluator.evaluate(line.toString(), this))
+      .map(line -> {
+        String str = cast(line, String.class).orElseThrow();
+        return evaluator != null ? evaluator.substituteVariables(str, this) : str;
+      })
       .filter(line -> !line.isEmpty())
       .map(line -> Arrays.asList(line.split("\\\\n|\\R")))
       .reduce(new ArrayList<>(), (a, b) -> {
@@ -359,6 +367,21 @@ public class ConfigValue implements IExpressionDataProvider {
     return buf;
   }
 
+  public ConfigValue evaluateAll(IExpressionDataProvider dataProvider) {
+    List<Object> evaluatedItems = items.stream().map(item -> {
+      // Is an evaluatable expression
+      if (evaluator != null && item instanceof ExpressionSection)
+        return evaluator.evaluateExpression((ExpressionSection) item, dataProvider);
+
+      return item;
+    }).collect(Collectors.toList());
+
+    Map<String, String> combinedVariables = new HashMap<>(this.variables);
+    combinedVariables.putAll(dataProvider.getVariables());
+
+    return new ConfigValue(evaluatedItems, combinedVariables, evaluator, lutResolver, prefix, prefixMode, areColorsEnabled);
+  }
+
   //=========================================================================//
   //                              Value Conversion                           //
   //=========================================================================//
@@ -371,6 +394,10 @@ public class ConfigValue implements IExpressionDataProvider {
    */
   private<T> Optional<T> cast(Object value, Class<T> type) {
     try {
+      // Is an evaluatable expression
+      if (evaluator != null && value instanceof ExpressionSection)
+        value = evaluator.evaluateExpression((ExpressionSection) value, this);
+
       // Requested the whole wrapper
       if (type == ConfigValue.class)
         return Optional.of(type.cast(this));
@@ -387,7 +414,7 @@ public class ConfigValue implements IExpressionDataProvider {
         return Optional.of(type.cast(value));
 
       // Stringify the value like asScalar would
-      String stringValue = evaluator.evaluate(value.toString().trim(), this);
+      String stringValue = evaluator != null ? evaluator.substituteVariables(value.toString().trim(), this) : value.toString().trim();
 
       // Requested an abstract material definition
       if (wType == XMaterial.class)
@@ -468,8 +495,11 @@ public class ConfigValue implements IExpressionDataProvider {
         return Optional.of(wType.cast(Float.parseFloat(stringValue)));
 
       // Parse booleans
-      if (wType == Boolean.class)
-        return Optional.of(wType.cast(evaluator.parseBoolean(stringValue)));
+      if (wType == Boolean.class) {
+        return Optional.of(wType.cast(
+          stringValue.equalsIgnoreCase("true") | stringValue.equalsIgnoreCase("yes") | stringValue.equalsIgnoreCase("1")
+        ));
+      }
 
       return Optional.of(wType.cast(value));
     } catch (Exception e) {
@@ -523,17 +553,12 @@ public class ConfigValue implements IExpressionDataProvider {
    * Create a carbon copy of this config value
    */
   public ConfigValue copy() {
-    return new ConfigValue(new ArrayList<>(items), new HashMap<>(variables), lutResolver, prefix, prefixMode, areColorsEnabled);
+    return new ConfigValue(new ArrayList<>(items), new HashMap<>(variables), evaluator, lutResolver, prefix, prefixMode, areColorsEnabled);
   }
 
   @Override
   public String toString() {
     return asScalar();
-  }
-
-  @Override
-  public DateFormat getSerializationFormat() {
-    return SERIALIZATION_FORMAT;
   }
 
   //=========================================================================//
@@ -579,14 +604,14 @@ public class ConfigValue implements IExpressionDataProvider {
    * Make a new empty instance
    */
   public static ConfigValue makeEmpty() {
-    return new ConfigValue("", null);
+    return new ConfigValue("", null, null);
   }
 
   /**
    * Make a new instance from an immediate value
    * @param value Immediate value
    */
-  public static ConfigValue immediate(String value) {
-    return new ConfigValue(value, null);
+  public static ConfigValue immediate(Object value) {
+    return new ConfigValue(value, null, null);
   }
 }

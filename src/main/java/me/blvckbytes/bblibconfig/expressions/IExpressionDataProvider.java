@@ -1,8 +1,8 @@
-package me.blvckbytes.bblibconfig;
+package me.blvckbytes.bblibconfig.expressions;
 
+import me.blvckbytes.bblibconfig.ILutResolver;
 import org.jetbrains.annotations.Nullable;
 
-import java.text.DateFormat;
 import java.util.Map;
 
 /*
@@ -36,12 +36,6 @@ public interface IExpressionDataProvider {
    * Get all available variables which may be substituted
    */
   Map<String, String> getVariables();
-
-  /**
-   * Get the serialization format for dates which is used when
-   * serializing dates into the variable map {@link #getVariables()}
-   */
-  DateFormat getSerializationFormat();
 
   /**
    * Get whether color notation should be substituted
