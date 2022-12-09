@@ -11,6 +11,7 @@ A configuration file object mapper with templating expression features.
   * [EQUALS](#equals)
   * [LUT_LOOKUP](#lut_lookup)
   * [OR](#or)
+  * [COMPARE](#compare)
 
 ## Variable Substitution
 
@@ -106,6 +107,32 @@ $evaluate:
   boolB: false
   # Optional, defaults to true
   positive: 'One of the two inputs is truthy'
+  # Optional, defaults to false
+  negative: 'So this pathway will not be entered'
+```
+
+### COMPARE
+
+Evaluates pathway `positive` if `valueA` compares positively to `valueB` in it's content, no matter it's
+type and jumps to pathway `negative` when mismatching.
+
+These are all available `mode`s of comparison:
+
+| Mode                  | Mathematical Equivalent |
+|-----------------------|-------------------------|
+| GREATER_THAN          | A > B                   |
+| GREATER_THAN_OR_EQUAL | A ≥ B                   |
+| LESS_THAN             | A < B                   |
+| LESS_THAN_OR_EQUAL    | A ≤ B                   |
+
+```yaml
+$evaluate:
+  operation: COMPARE
+  valueA: 5
+  valueB: 4
+  mode: GREATER_THAN
+  # Optional, defaults to true
+  positive: 'Value a is greater than b'
   # Optional, defaults to false
   negative: 'So this pathway will not be entered'
 ```

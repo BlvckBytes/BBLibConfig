@@ -2,14 +2,14 @@ package me.blvckbytes.bblibconfig.expressions;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import me.blvckbytes.bblibconfig.AConfigSection;
-import me.blvckbytes.bblibconfig.sections.operations.*;
+
+import java.util.function.BiFunction;
 
 /*
   Author: BlvckBytes <blvckbytes@gmail.com>
   Created On: 12/09/2022
 
-  Lists all available expression operations as well as their custom argument wrappers.
+  Lists all available comparison modes and their evaluation functions.
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Affero General Public License as published
@@ -26,15 +26,12 @@ import me.blvckbytes.bblibconfig.sections.operations.*;
 */
 @Getter
 @AllArgsConstructor
-public enum ExpressionOperation {
-
-  IF(IfOperationArgument.class),
-  EQUALS(EqualsOperationArgument.class),
-  LUT_LOOKUP(LutLookupOperationArgument.class),
-  OR(OrOperationArgument.class),
-  COMPARE(CompareOperationArgument.class),
+public enum ComparisonMode {
+  GREATER_THAN((a, b) -> a > b),
+  GREATER_THAN_OR_EQUAL((a, b) -> a >= b),
+  LESS_THAN((a, b) -> a < b),
+  LESS_THAN_OR_EQUAL((a, b) -> a <= b),
   ;
 
-  private final Class<? extends AConfigSection> argumentSectionType;
-
+  private final BiFunction<Double, Double, Boolean> compare;
 }
