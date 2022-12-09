@@ -2,8 +2,8 @@ package me.blvckbytes.bblibconfig.expressions.operations;
 
 import me.blvckbytes.bblibconfig.ConfigValue;
 import me.blvckbytes.bblibconfig.ILutResolver;
+import me.blvckbytes.bblibconfig.expressions.AOperation;
 import me.blvckbytes.bblibconfig.expressions.IExpressionDataProvider;
-import me.blvckbytes.bblibconfig.expressions.IOperation;
 import me.blvckbytes.bblibconfig.expressions.IOperatorRegistry;
 import me.blvckbytes.bblibconfig.expressions.ExpressionOperation;
 import me.blvckbytes.bblibconfig.sections.ExpressionSection;
@@ -32,7 +32,7 @@ import me.blvckbytes.bblibdi.AutoInject;
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 @AutoConstruct
-public class LutLookupOperation implements IOperation {
+public class LutLookupOperation extends AOperation {
 
   public LutLookupOperation(
     @AutoInject IOperatorRegistry registry

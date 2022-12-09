@@ -21,6 +21,11 @@ package me.blvckbytes.bblibconfig.expressions;
 */
 public interface IOperatorRegistry {
 
-  void register(ExpressionOperation type, IOperation operation);
+  /**
+   * Registers a new operation in connection to it's corresponding operator
+   * @param type Operator to register for
+   * @param operation Operation to execute
+   */
+  void register(ExpressionOperation type, AOperation operation);
 
 }

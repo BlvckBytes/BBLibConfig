@@ -1,16 +1,14 @@
 package me.blvckbytes.bblibconfig.expressions.operations;
 
 import me.blvckbytes.bblibconfig.ConfigValue;
+import me.blvckbytes.bblibconfig.expressions.AOperation;
 import me.blvckbytes.bblibconfig.expressions.IExpressionDataProvider;
-import me.blvckbytes.bblibconfig.expressions.IOperation;
 import me.blvckbytes.bblibconfig.expressions.IOperatorRegistry;
 import me.blvckbytes.bblibconfig.expressions.ExpressionOperation;
 import me.blvckbytes.bblibconfig.sections.ExpressionSection;
 import me.blvckbytes.bblibconfig.sections.operations.IfOperationArgument;
 import me.blvckbytes.bblibdi.AutoConstruct;
 import me.blvckbytes.bblibdi.AutoInject;
-
-import java.util.regex.Pattern;
 
 /*
   Author: BlvckBytes <blvckbytes@gmail.com>
@@ -32,10 +30,7 @@ import java.util.regex.Pattern;
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 @AutoConstruct
-public class IfOperation implements IOperation {
-
-  // 0.0, .0, 0
-  private static final Pattern FLOAT_PATTERN = Pattern.compile("^\\d*\\.?\\d+$");
+public class IfOperation extends AOperation {
 
   public IfOperation(
     @AutoInject IOperatorRegistry registry
@@ -46,14 +41,7 @@ public class IfOperation implements IOperation {
   @Override
   public ConfigValue execute(ExpressionSection expression, IExpressionDataProvider dataProvider) {
     IfOperationArgument args = (IfOperationArgument) expression.getArguments();
-    String value = args.getBool().evaluateAll(dataProvider).toString().trim();
-
-    boolean result = value.equalsIgnoreCase("true") || value.equalsIgnoreCase("yes");
-
-    // Not yet valid, test for numbers
-    if (!result && FLOAT_PATTERN.matcher(value).matches())
-      result = Float.parseFloat(value) > 0;
-
-    return result ? args.getPositive().evaluateAll(dataProvider) : args.getNegative().evaluateAll(dataProvider);
+    ConfigValue value = args.getBool().evaluateAll(dataProvider);
+    return isTruthy(value) ? resultOrFallback(args.getPositive(), dataProvider, true) : resultOrFallback(args.getNegative(), dataProvider, false);
   }
 }

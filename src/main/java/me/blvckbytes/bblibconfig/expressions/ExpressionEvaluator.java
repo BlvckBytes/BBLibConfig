@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 public class ExpressionEvaluator implements IExpressionEvaluator, IOperatorRegistry {
 
   // Mapping operators to their executors
-  private final Map<ExpressionOperation, IOperation> operators;
+  private final Map<ExpressionOperation, AOperation> operators;
 
   public ExpressionEvaluator(
     @AutoInject ILogger logger
@@ -170,7 +170,7 @@ public class ExpressionEvaluator implements IExpressionEvaluator, IOperatorRegis
   }
 
   @Override
-  public void register(ExpressionOperation type, IOperation operation) {
+  public void register(ExpressionOperation type, AOperation operation) {
     this.operators.put(type, operation);
   }
 }

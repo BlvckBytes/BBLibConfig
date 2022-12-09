@@ -23,7 +23,7 @@ import org.jetbrains.annotations.Nullable;
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 @Getter
-public class EqualsStrictOperationArgument extends AOperationArgument {
+public class EqualsOperationArgument extends AOperationArgument {
 
   @CSAlways
   private ConfigValue valueA;
@@ -31,8 +31,15 @@ public class EqualsStrictOperationArgument extends AOperationArgument {
   @CSAlways
   private ConfigValue valueB;
 
+  private boolean trim;
+  private boolean ignoreCasing;
+
   private @Nullable ConfigValue positive;
   private @Nullable ConfigValue negative;
+
+  public EqualsOperationArgument() {
+    trim = true;
+  }
 
   @Override
   public String toString() {

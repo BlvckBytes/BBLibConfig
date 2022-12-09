@@ -8,7 +8,7 @@ A configuration file object mapper with templating expression features.
 * [Lookup Tables](#lookup-tables)
 * [Dynamic Content](#dynamic-content)
   * [IF](#if)
-  * [EQUALS_STRICT](#equals_strict)
+  * [EQUALS](#equals)
   * [LUT_LOOKUP](#lut_lookup)
 
 ## Variable Substitution
@@ -62,16 +62,20 @@ $evaluate:
   negative: 'Negative case'
 ```
 
-### EQUALS_STRICT
+### EQUALS
 
 Evaluates pathway `positive` if `valueA` equals `valueB` in it's content, no matter it's type and
 jumps to pathway `negative` when mismatching.
 
 ```yaml
 $evaluate:
-  operation: EQUALS_STRICT
+  operation: EQUALS
   valueA: 5
   valueB: 4
+  # Optional, defaults to true (whether to trim strings before comparison)
+  trim: true
+  # Optional, defaults to false (whether to ignore casing when comparing strings)
+  ignoreCasing: false
   # Optional, defaults to true
   positive: 'These numbers are not equal'
   # Optional, defaults to false

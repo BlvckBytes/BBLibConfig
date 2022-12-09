@@ -1,14 +1,16 @@
 package me.blvckbytes.bblibconfig.expressions.operations;
 
 import me.blvckbytes.bblibconfig.ConfigValue;
+import me.blvckbytes.bblibconfig.expressions.AOperation;
 import me.blvckbytes.bblibconfig.expressions.IExpressionDataProvider;
-import me.blvckbytes.bblibconfig.expressions.IOperation;
 import me.blvckbytes.bblibconfig.expressions.IOperatorRegistry;
 import me.blvckbytes.bblibconfig.expressions.ExpressionOperation;
 import me.blvckbytes.bblibconfig.sections.ExpressionSection;
-import me.blvckbytes.bblibconfig.sections.operations.EqualsStrictOperationArgument;
+import me.blvckbytes.bblibconfig.sections.operations.EqualsOperationArgument;
 import me.blvckbytes.bblibdi.AutoConstruct;
 import me.blvckbytes.bblibdi.AutoInject;
+
+import java.util.Optional;
 
 /*
   Author: BlvckBytes <blvckbytes@gmail.com>
@@ -30,25 +32,42 @@ import me.blvckbytes.bblibdi.AutoInject;
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 @AutoConstruct
-public class EqualsStrictOperation implements IOperation {
+public class EqualsOperation extends AOperation {
 
-  public EqualsStrictOperation(
+  public EqualsOperation(
     @AutoInject IOperatorRegistry registry
   ) {
-    registry.register(ExpressionOperation.EQUALS_STRICT, this);
+    registry.register(ExpressionOperation.EQUALS, this);
   }
 
   @Override
   public ConfigValue execute(ExpressionSection expression, IExpressionDataProvider dataProvider) {
-    EqualsStrictOperationArgument args = (EqualsStrictOperationArgument) expression.getArguments();
-    boolean result = args.getValueA().evaluateAll(dataProvider).toString().equals(args.getValueB().evaluateAll(dataProvider).toString());
+    EqualsOperationArgument args = (EqualsOperationArgument) expression.getArguments();
 
-    return ConfigValue.immediate(
-      result ? (
-        args.getPositive() == null ? true : args.getPositive().evaluateAll(dataProvider)
-      ) : (
-        args.getNegative() == null ? false : args.getNegative().evaluateAll(dataProvider)
-      )
+    // Evaluate both inputs
+    ConfigValue cvA = args.getValueA().evaluateAll(dataProvider);
+    ConfigValue cvB = args.getValueB().evaluateAll(dataProvider);
+
+    // Check if they're both numbers
+    Optional<Double> numberA = tryParseNumber(cvA);
+    Optional<Double> numberB = tryParseNumber(cvB);
+
+    // If so, compare numbers to avoid possible mismatches on different string formatting styles
+    if (numberA.isPresent() && numberB.isPresent())
+      return ConfigValue.immediate(numberA.get().compareTo(numberB.get()) == 0);
+
+    String valueA = cvA.toString();
+    String valueB = cvB.toString();
+
+    if (args.isTrim()) {
+      valueA = valueA.trim();
+      valueB = valueB.trim();
+    }
+
+    return (
+      (args.isIgnoreCasing() ? valueA.equalsIgnoreCase(valueB) : valueA.equals(valueB)) ?
+        resultOrFallback(args.getPositive(), dataProvider, true) :
+        resultOrFallback(args.getNegative(), dataProvider, false)
     );
   }
 }

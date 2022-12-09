@@ -3,7 +3,7 @@ package me.blvckbytes.bblibconfig.expressions;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import me.blvckbytes.bblibconfig.AConfigSection;
-import me.blvckbytes.bblibconfig.sections.operations.EqualsStrictOperationArgument;
+import me.blvckbytes.bblibconfig.sections.operations.EqualsOperationArgument;
 import me.blvckbytes.bblibconfig.sections.operations.IfOperationArgument;
 import me.blvckbytes.bblibconfig.sections.operations.LutLookupOperationArgument;
 
@@ -31,7 +31,7 @@ import me.blvckbytes.bblibconfig.sections.operations.LutLookupOperationArgument;
 public enum ExpressionOperation {
 
   IF(IfOperationArgument.class),
-  EQUALS_STRICT(EqualsStrictOperationArgument.class),
+  EQUALS(EqualsOperationArgument.class),
   LUT_LOOKUP(LutLookupOperationArgument.class),
   ;
 
