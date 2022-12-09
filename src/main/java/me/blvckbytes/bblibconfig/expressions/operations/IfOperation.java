@@ -10,6 +10,8 @@ import me.blvckbytes.bblibconfig.sections.operations.IfOperationArgument;
 import me.blvckbytes.bblibdi.AutoConstruct;
 import me.blvckbytes.bblibdi.AutoInject;
 
+import java.util.regex.Pattern;
+
 /*
   Author: BlvckBytes <blvckbytes@gmail.com>
   Created On: 12/09/2022
@@ -32,6 +34,9 @@ import me.blvckbytes.bblibdi.AutoInject;
 @AutoConstruct
 public class IfOperation implements IOperation {
 
+  // 0.0, .0, 0
+  private static final Pattern FLOAT_PATTERN = Pattern.compile("^\\d*\\.?\\d+$");
+
   public IfOperation(
     @AutoInject IOperatorRegistry registry
   ) {
@@ -41,10 +46,14 @@ public class IfOperation implements IOperation {
   @Override
   public ConfigValue execute(ExpressionSection expression, IExpressionDataProvider dataProvider) {
     IfOperationArgument args = (IfOperationArgument) expression.getArguments();
-    String value = args.getBool().evaluateAll(dataProvider).toString();
+    String value = args.getBool().evaluateAll(dataProvider).toString().trim();
 
-    return (
-      value.equalsIgnoreCase("true") | value.equalsIgnoreCase("yes") | value.equalsIgnoreCase("1")
-    ) ? args.getPositive().evaluateAll(dataProvider) : args.getNegative().evaluateAll(dataProvider);
+    boolean result = value.equalsIgnoreCase("true") || value.equalsIgnoreCase("yes");
+
+    // Not yet valid, test for numbers
+    if (!result && FLOAT_PATTERN.matcher(value).matches())
+      result = Float.parseFloat(value) > 0;
+
+    return result ? args.getPositive().evaluateAll(dataProvider) : args.getNegative().evaluateAll(dataProvider);
   }
 }
