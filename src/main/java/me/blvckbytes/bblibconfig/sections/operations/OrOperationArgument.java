@@ -23,33 +23,24 @@ import org.jetbrains.annotations.Nullable;
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 @Getter
-public class EqualsOperationArgument extends AOperationArgument {
+public class OrOperationArgument extends AOperationArgument {
 
   @CSAlways
-  private ConfigValue valueA;
+  private ConfigValue boolA;
 
   @CSAlways
-  private ConfigValue valueB;
-
-  private boolean trim;
-  private boolean ignoreCasing;
+  private ConfigValue boolB;
 
   private @Nullable ConfigValue positive;
   private @Nullable ConfigValue negative;
 
-  public EqualsOperationArgument() {
-    trim = true;
-  }
-
   @Override
   public String toString() {
-    return "EqualsStrictOperationArgument (" + "\n" +
-      "  valueA=" + valueA + "\n" +
-      "  valueB=" + valueB + "\n" +
-      "  trim=" + trim + "\n" +
-      "  ignoreCasing=" + ignoreCasing + "\n" +
-      "  positive=" + positive + "\n" +
-      "  negative=" + negative + "\n" +
+    return "OrOperationArgument (" + "\n" +
+      "  boolA=" + stringifyConfigValue(boolA) + "\n" +
+      "  boolB=" + stringifyConfigValue(boolB) + "\n" +
+      "  positive=" + stringifyConfigValue(positive) + "\n" +
+      "  negative=" + stringifyConfigValue(negative) + "\n" +
       ')';
   }
 }

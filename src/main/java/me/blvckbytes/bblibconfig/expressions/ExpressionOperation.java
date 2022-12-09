@@ -6,6 +6,7 @@ import me.blvckbytes.bblibconfig.AConfigSection;
 import me.blvckbytes.bblibconfig.sections.operations.EqualsOperationArgument;
 import me.blvckbytes.bblibconfig.sections.operations.IfOperationArgument;
 import me.blvckbytes.bblibconfig.sections.operations.LutLookupOperationArgument;
+import me.blvckbytes.bblibconfig.sections.operations.OrOperationArgument;
 
 /*
   Author: BlvckBytes <blvckbytes@gmail.com>
@@ -33,6 +34,7 @@ public enum ExpressionOperation {
   IF(IfOperationArgument.class),
   EQUALS(EqualsOperationArgument.class),
   LUT_LOOKUP(LutLookupOperationArgument.class),
+  OR(OrOperationArgument.class),
   ;
 
   private final Class<? extends AConfigSection> argumentSectionType;

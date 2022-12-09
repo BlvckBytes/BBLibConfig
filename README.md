@@ -10,6 +10,7 @@ A configuration file object mapper with templating expression features.
   * [IF](#if)
   * [EQUALS](#equals)
   * [LUT_LOOKUP](#lut_lookup)
+  * [OR](#or)
 
 ## Variable Substitution
 
@@ -93,4 +94,18 @@ $evaluate:
   lutName: 'my_lut'
   lutKey: 'my_key'
   defaultValue: 'Fallback value'
+```
+### OR
+
+Evaluates pathway `positive` if either `boolA` or `boolB` is truthy and jumps to pathway `negative` in all other cases.
+
+```yaml
+$evaluate:
+  operation: OR
+  boolA: true
+  boolB: false
+  # Optional, defaults to true
+  positive: 'One of the two inputs is truthy'
+  # Optional, defaults to false
+  negative: 'So this pathway will not be entered'
 ```

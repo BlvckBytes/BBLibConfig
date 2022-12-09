@@ -49,12 +49,17 @@ public class EqualsOperation extends AOperation {
     ConfigValue cvB = args.getValueB().evaluateAll(dataProvider);
 
     // Check if they're both numbers
-    Optional<Double> numberA = tryParseNumber(cvA);
-    Optional<Double> numberB = tryParseNumber(cvB);
+    Optional<Double> numberA = tryParseNumber(flattenValue(cvA));
+    Optional<Double> numberB = tryParseNumber(flattenValue(cvB));
 
     // If so, compare numbers to avoid possible mismatches on different string formatting styles
-    if (numberA.isPresent() && numberB.isPresent())
-      return ConfigValue.immediate(numberA.get().compareTo(numberB.get()) == 0);
+    if (numberA.isPresent() && numberB.isPresent()) {
+      return (
+        (numberA.get().compareTo(numberB.get()) == 0) ?
+          resultOrFallback(args.getPositive(), dataProvider, true) :
+          resultOrFallback(args.getNegative(), dataProvider, false)
+      );
+    }
 
     String valueA = cvA.toString();
     String valueB = cvB.toString();

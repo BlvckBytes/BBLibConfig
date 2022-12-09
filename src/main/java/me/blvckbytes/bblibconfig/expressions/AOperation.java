@@ -69,6 +69,12 @@ public abstract class AOperation {
     if (input instanceof Float)
       return Optional.of(Double.valueOf((Float) input));
 
+    if (input instanceof Long)
+      return Optional.of(Double.valueOf((Long) input));
+
+    if (input instanceof Integer)
+      return Optional.of(Double.valueOf((Integer) input));
+
     // Try to parse the number from a string
     if (input instanceof String) {
       if (FLOAT_PATTERN.matcher((String) input).matches())
