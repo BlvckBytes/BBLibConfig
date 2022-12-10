@@ -12,6 +12,7 @@ A configuration file object mapper with templating expression features.
   * [LUT_LOOKUP](#lut_lookup)
   * [OR](#or)
   * [COMPARE](#compare)
+  * [CONCAT](#concat)
 
 ## Variable Substitution
 
@@ -146,4 +147,19 @@ $evaluate:
   positive: 'Value a is greater than b'
   # Optional, defaults to false
   negative: 'So this pathway will not be entered'
+```
+
+### CONCAT
+
+Concatenates the values `stringA` and `stringB` by interpreting them as strings and joining them
+using the `separator` string, if provided. This operation becomes useful as soon as you're trying to
+join values transformed by other operations (temporary values, in essence) with other values.
+
+```yaml
+$evaluate:
+  operation: CONCAT
+  stringA: 'Welcome'
+  stringB: '{{username}}'
+  # Optional, defaults to none
+  separator: ' '
 ```

@@ -1,15 +1,13 @@
-package me.blvckbytes.bblibconfig.expressions;
+package me.blvckbytes.bblibconfig.sections.operations;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import me.blvckbytes.bblibconfig.AConfigSection;
-import me.blvckbytes.bblibconfig.sections.operations.*;
+import me.blvckbytes.bblibconfig.ConfigValue;
+import me.blvckbytes.bblibconfig.sections.CSAlways;
+import org.jetbrains.annotations.Nullable;
 
 /*
   Author: BlvckBytes <blvckbytes@gmail.com>
-  Created On: 12/09/2022
-
-  Lists all available expression operations as well as their custom argument wrappers.
+  Created On: 12/10/2022
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Affero General Public License as published
@@ -25,17 +23,22 @@ import me.blvckbytes.bblibconfig.sections.operations.*;
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 @Getter
-@AllArgsConstructor
-public enum ExpressionOperation {
+public class ConcatOperationArgument extends AOperationArgument {
 
-  IF(IfOperationArgument.class),
-  EQUALS(EqualsOperationArgument.class),
-  LUT_LOOKUP(LutLookupOperationArgument.class),
-  OR(OrOperationArgument.class),
-  COMPARE(CompareOperationArgument.class),
-  CONCAT(ConcatOperationArgument.class)
-  ;
+  @CSAlways
+  private ConfigValue stringA;
 
-  private final Class<? extends AConfigSection> argumentSectionType;
+  @CSAlways
+  private ConfigValue stringB;
 
+  private @Nullable ConfigValue separator;
+
+  @Override
+  public String toString() {
+    return "ConcatOperationArgument (" + "\n" +
+      "  stringA=" + stringA + "\n" +
+      "  stringB=" + stringB + "\n" +
+      "  separator=" + separator + "\n" +
+      ')';
+  }
 }
