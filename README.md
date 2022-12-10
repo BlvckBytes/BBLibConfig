@@ -163,3 +163,25 @@ $evaluate:
   # Optional, defaults to none
   separator: ' '
 ```
+### MATH
+
+Performs the specified math `mode` on it's two input values `valueA` and `valueB`. If an input
+is not a numeric value, the result will default to zero.
+
+These are all available math `mode`s:
+
+| Mode     | Mathematical Equivalent |
+|----------|-------------------------|
+| PLUS     | A + B                   |
+| MINUS    | A - B                   |
+| MULTIPLY | A * B                   |
+| DIVIDE   | A / B                   |
+| POW      | A ^ B                   |
+
+```yaml
+$evaluate:
+  operation: MATH
+  mode: POW
+  valueA: 5
+  valueB: 4
+```

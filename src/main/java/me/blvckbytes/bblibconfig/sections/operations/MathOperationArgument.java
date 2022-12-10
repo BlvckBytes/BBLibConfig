@@ -1,15 +1,13 @@
-package me.blvckbytes.bblibconfig.expressions;
+package me.blvckbytes.bblibconfig.sections.operations;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import me.blvckbytes.bblibconfig.AConfigSection;
-import me.blvckbytes.bblibconfig.sections.operations.*;
+import me.blvckbytes.bblibconfig.ConfigValue;
+import me.blvckbytes.bblibconfig.expressions.MathMode;
+import me.blvckbytes.bblibconfig.sections.CSAlways;
 
 /*
   Author: BlvckBytes <blvckbytes@gmail.com>
-  Created On: 12/09/2022
-
-  Lists all available expression operations as well as their custom argument wrappers.
+  Created On: 12/10/2022
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Affero General Public License as published
@@ -25,18 +23,23 @@ import me.blvckbytes.bblibconfig.sections.operations.*;
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 @Getter
-@AllArgsConstructor
-public enum ExpressionOperation {
+public class MathOperationArgument extends AOperationArgument {
 
-  IF(IfOperationArgument.class),
-  EQUALS(EqualsOperationArgument.class),
-  LUT_LOOKUP(LutLookupOperationArgument.class),
-  OR(OrOperationArgument.class),
-  COMPARE(CompareOperationArgument.class),
-  CONCAT(ConcatOperationArgument.class),
-  MATH(MathOperationArgument.class),
-  ;
+  @CSAlways
+  private ConfigValue valueA;
 
-  private final Class<? extends AConfigSection> argumentSectionType;
+  @CSAlways
+  private ConfigValue valueB;
 
+  @CSAlways
+  private MathMode mode;
+
+  @Override
+  public String toString() {
+    return "MathOperationArgument (" + "\n" +
+      "  valueA=" + valueA + "\n" +
+      "  valueB=" + valueB + "\n" +
+      "  mode=" + mode + "\n" +
+      ')';
+  }
 }
