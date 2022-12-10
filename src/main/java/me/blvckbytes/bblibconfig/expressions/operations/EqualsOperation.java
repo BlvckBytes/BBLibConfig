@@ -54,11 +54,9 @@ public class EqualsOperation extends AOperation {
 
     // If so, compare numbers to avoid possible mismatches on different string formatting styles
     if (numberA.isPresent() && numberB.isPresent()) {
-      return (
-        (numberA.get().compareTo(numberB.get()) == 0) ?
-          resultOrFallback(args.getPositive(), dataProvider, true) :
-          resultOrFallback(args.getNegative(), dataProvider, false)
-      );
+      if ((numberA.get().compareTo(numberB.get()) == 0) ^ args.isNegate())
+        return resultOrFallback(args.getPositive(), dataProvider, true);
+      return resultOrFallback(args.getNegative(), dataProvider, false);
     }
 
     String valueA = cvA.toString();
@@ -69,10 +67,9 @@ public class EqualsOperation extends AOperation {
       valueB = valueB.trim();
     }
 
-    return (
-      (args.isIgnoreCasing() ? valueA.equalsIgnoreCase(valueB) : valueA.equals(valueB)) ?
-        resultOrFallback(args.getPositive(), dataProvider, true) :
-        resultOrFallback(args.getNegative(), dataProvider, false)
-    );
+    if ((args.isIgnoreCasing() ? valueA.equalsIgnoreCase(valueB) : valueA.equals(valueB)) ^ args.isNegate())
+      return resultOrFallback(args.getPositive(), dataProvider, true);
+
+    return resultOrFallback(args.getNegative(), dataProvider, false);
   }
 }

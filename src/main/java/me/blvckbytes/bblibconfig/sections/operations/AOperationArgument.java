@@ -1,5 +1,6 @@
 package me.blvckbytes.bblibconfig.sections.operations;
 
+import lombok.Getter;
 import me.blvckbytes.bblibconfig.AConfigSection;
 import me.blvckbytes.bblibconfig.ConfigValue;
 import me.blvckbytes.bblibconfig.sections.ExpressionSection;
@@ -25,6 +26,9 @@ import org.jetbrains.annotations.Nullable;
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 public abstract class AOperationArgument extends AConfigSection {
+
+  @Getter
+  private boolean negate;
 
   /**
    * Decides how to stringify a config value based on it's internal items

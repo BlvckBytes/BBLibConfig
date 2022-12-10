@@ -48,6 +48,16 @@ In order to decide on displayed content at runtime, the user has to express all
 possible pathways as well as their results in an exact manner. In order to achieve
 this, we offer the ability to express these pathways as a tree of operators.
 
+All logical operations support the `negate` property which will in essence flip it's `positive` and
+`negative` cases internally.
+
+```yaml
+$evaluate:
+  operation: <...>
+  # Optional, defaults to false
+  negate: true
+```
+
 ### IF
 
 Evaluates pathway `positive` if `bool` equals:
@@ -99,6 +109,7 @@ $evaluate:
 ### OR
 
 Evaluates pathway `positive` if either `boolA` or `boolB` is truthy and jumps to pathway `negative` in all other cases.
+
 
 ```yaml
 $evaluate:

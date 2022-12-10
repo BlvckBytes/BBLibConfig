@@ -53,7 +53,10 @@ public class LutLookupOperation extends AOperation {
     if (lutResolver == null)
       return ConfigValue.immediate(defaultValue);
 
-    String result = lutResolver.getLut(lutName).map(lut -> lut.getOrDefault(lutKey, defaultValue)).orElse(null);
-    return result == null ? ConfigValue.immediate(defaultValue) : ConfigValue.immediate(result);
+    return ConfigValue.immediate(
+      lutResolver.getLut(lutName)
+      .map(lut -> lut.getOrDefault(lutKey, defaultValue))
+      .orElse(defaultValue)
+    );
   }
 }

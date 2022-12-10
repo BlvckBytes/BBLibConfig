@@ -54,11 +54,9 @@ public class CompareOperation extends AOperation {
 
     // If so, compare numbers to avoid possible mismatches on different string formatting styles
     if (numberA.isPresent() && numberB.isPresent()) {
-      return (
-        args.getMode().getCompare().apply(numberA.get(), numberB.get()) ?
-          resultOrFallback(args.getPositive(), dataProvider, true) :
-          resultOrFallback(args.getNegative(), dataProvider, false)
-      );
+      if (args.getMode().getCompare().apply(numberA.get(), numberB.get()) ^ args.isNegate())
+        return resultOrFallback(args.getPositive(), dataProvider, true);
+      return resultOrFallback(args.getNegative(), dataProvider, false);
     }
 
     // TODO: Implement date comparison

@@ -42,6 +42,10 @@ public class IfOperation extends AOperation {
   public ConfigValue execute(ExpressionSection expression, IExpressionDataProvider dataProvider) {
     IfOperationArgument args = (IfOperationArgument) expression.getArguments();
     ConfigValue value = args.getBool().evaluateAll(dataProvider);
-    return isTruthy(value) ? resultOrFallback(args.getPositive(), dataProvider, true) : resultOrFallback(args.getNegative(), dataProvider, false);
+
+    if (isTruthy(value) ^ args.isNegate())
+      return resultOrFallback(args.getPositive(), dataProvider, true);
+
+    return resultOrFallback(args.getNegative(), dataProvider, false);
   }
 }

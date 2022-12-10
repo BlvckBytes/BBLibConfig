@@ -43,6 +43,10 @@ public class OrOperation extends AOperation {
     OrOperationArgument args = (OrOperationArgument) expression.getArguments();
     ConfigValue boolA = args.getBoolA().evaluateAll(dataProvider);
     ConfigValue boolB = args.getBoolB().evaluateAll(dataProvider);
-    return (isTruthy(boolA) || isTruthy(boolB)) ? resultOrFallback(args.getPositive(), dataProvider, true) : resultOrFallback(args.getNegative(), dataProvider, false);
+
+    if ((isTruthy(boolA) || isTruthy(boolB)) ^ args.isNegate())
+      return resultOrFallback(args.getPositive(), dataProvider, true);
+
+    return resultOrFallback(args.getNegative(), dataProvider, false);
   }
 }
