@@ -185,3 +185,15 @@ $evaluate:
   valueA: 5
   valueB: 4
 ```
+
+### DATE_FORMAT
+
+Formats the input `date` by applying the specified `format`
+([format notation](https://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html)).
+
+```yaml
+$evaluate:
+  operation: DATE_FORMAT
+  date: '{{now}}'
+  format: "dd.MM.yyyy '@' HH:mm:ss"
+```

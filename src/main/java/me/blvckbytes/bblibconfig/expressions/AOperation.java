@@ -4,6 +4,9 @@ import me.blvckbytes.bblibconfig.ConfigValue;
 import me.blvckbytes.bblibconfig.sections.ExpressionSection;
 import org.jetbrains.annotations.Nullable;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -30,6 +33,7 @@ public abstract class AOperation {
 
   // 0.0, .0, 0
   private static final Pattern FLOAT_PATTERN = Pattern.compile("^\\d*\\.?\\d+$");
+  private static final DateFormat DATE_ISO = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
 
   /**
    * Called whenever this operation is requested to be performed
@@ -82,6 +86,33 @@ public abstract class AOperation {
     }
 
     // Not a number
+    return Optional.empty();
+  }
+
+  /**
+   * Tries to parse a date from an object by either casting it or parsing
+   * the date from an ISO string representation or a unix timestamp number
+   * @param input Input value
+   * @return Parsed date, available if possible
+   */
+  protected Optional<Date> tryParseDate(Object input) {
+    // Already a date
+    if (input instanceof Date)
+      return Optional.of((Date) input);
+
+    // Try to parse the date from a unix timestamp number
+    Optional<Double> number = tryParseNumber(input);
+    if (number.isPresent())
+      return number.map(num -> new Date(num.longValue()));
+
+    // Try to parse the date from an ISO string
+    if (input instanceof String) {
+      try {
+        return Optional.of(DATE_ISO.parse((String) input));
+      } catch (Exception ignored) {}
+    }
+
+    // Not a date
     return Optional.empty();
   }
 

@@ -35,6 +35,7 @@ public enum ExpressionOperation {
   COMPARE(CompareOperationArgument.class),
   CONCAT(ConcatOperationArgument.class),
   MATH(MathOperationArgument.class),
+  DATE_FORMAT(DateFormatOperationArgument.class),
   ;
 
   private final Class<? extends AConfigSection> argumentSectionType;
