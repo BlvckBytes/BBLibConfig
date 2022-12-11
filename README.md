@@ -13,6 +13,9 @@ A configuration file object mapper with templating expression features.
   * [OR](#or)
   * [COMPARE](#compare)
   * [CONCAT](#concat)
+  * [MATH](#math)
+  * [DATE_FORMAT](#date_format)
+  * [NUMBER_FORMAT](#number_format)
 
 ## Variable Substitution
 
@@ -196,4 +199,42 @@ $evaluate:
   operation: DATE_FORMAT
   date: '{{now}}'
   format: "dd.MM.yyyy '@' HH:mm:ss"
+```
+
+### NUMBER_FORMAT
+
+Formats the input `number` by applying all formatting parameters to it and keep non-numeric values untouched.
+
+| Separation Mode | Example         |
+|-----------------|-----------------|
+| NONE            | 1000000.0       |
+| TENS            | 1,0,0,0,0,0,0.0 |
+| HUNDREDS        | 1,00,00,00.0    |
+| THOUSANDS       | 1,000,000.0     |
+| MILLIONS        | 1,000000.0      |
+
+
+| Rounding Mode | Example                          |
+|---------------|----------------------------------|
+| NONE          | 100.12                           |
+| DOWN          | 100.12 -> 100.0                  |
+| UP            | 100.12 -> 101.0                  |
+| HALF          | 100.12 -> 100.0, 100.55 -> 101.0 |
+
+```yaml
+$evaluate:
+  operation: NUMBER_FORMAT
+  number: 100000.123
+  # Optional, defaults to '.'
+  decimalString: '.'
+  # Optional, defaults to NONE
+  roundingMode: HALF
+  # Optional, defaults to 0
+  numberOfDecimals: 2
+  # Optional, defaults to NONE
+  separationMode: HUNDREDS
+  # Optional, defaults to ','
+  separationString: ','
+  # Optional, defaults to 0
+  paddingSize: 0
 ```

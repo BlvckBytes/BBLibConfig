@@ -36,6 +36,7 @@ public enum ExpressionOperation {
   CONCAT(ConcatOperationArgument.class),
   MATH(MathOperationArgument.class),
   DATE_FORMAT(DateFormatOperationArgument.class),
+  NUMBER_FORMAT(NumberFormatOperationArgument.class),
   ;
 
   private final Class<? extends AConfigSection> argumentSectionType;
